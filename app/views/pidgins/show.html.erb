@@ -1,0 +1,38 @@
+<p>
+  <b>User:</b>
+  <%=h @pidgin_account.user_id %>
+</p>
+
+<p>
+  <b>Name:</b>
+  <%=h @pidgin_account.name %>
+</p>
+
+<p>
+  <b>Hashed Password:</b>
+  <%=h @pidgin_account.hashed_password %>
+</p>
+
+<p>
+  <b>Status:</b>
+  <%=h @pidgin_account.status %>
+</p>
+
+<p>
+  <b>Message:</b>
+  <%=h @pidgin_account.message %>
+</p>
+
+<p>
+  <b>Protocol:</b>
+  <%=h @pidgin_account.protocol %>
+</p>
+
+<p>
+  <b>Icon:</b>
+  <%=h @pidgin_account.icon %>
+</p>
+
+
+<%= link_to 'Edit', edit_pidgin_account_path(@pidgin_account) %> |
+<%= link_to 'Back', pidgin_accounts_path %>

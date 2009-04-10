@@ -15,6 +15,7 @@ ActiveRecord::Schema.define(:version => 20090410201325) do
     t.integer  "user_id",         :limit => 11,                 :null => false
     t.string   "name",                          :default => "", :null => false
     t.string   "hashed_password",               :default => "", :null => false
+    t.string   "salt",                                          :null => false
     t.string   "status",                        :default => "", :null => false
     t.string   "message"
     t.string   "protocol",                      :default => "", :null => false
@@ -26,6 +27,7 @@ ActiveRecord::Schema.define(:version => 20090410201325) do
   create_table "users", :force => true do |t|
     t.string   "name",            :default => "", :null => false
     t.string   "hashed_password", :default => "", :null => false
+    t.string   "salt",                            :null => false
     t.string   "email",           :default => "", :null => false
     t.datetime "created_at"
     t.datetime "updated_at"

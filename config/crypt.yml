@@ -1,0 +1,13 @@
+
+
+development:
+  master_key: blah
+  salt: bleh
+
+test:
+  master_key: blah
+  salt: bleh
+
+production:
+  master_key: blah
+  salt: bleh

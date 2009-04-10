@@ -1,4 +1,6 @@
 class PidginAccountsController < ApplicationController
+  layout 'default'
+
   # GET /pidgin_accounts
   # GET /pidgin_accounts.xml
   def index

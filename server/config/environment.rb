@@ -50,7 +50,7 @@ Rails::Initializer.run do |config|
   # Make sure the secret is at least 30 characters and all random, 
   # no regular words or you'll be exposed to dictionary attacks.
   config.action_controller.session = {
-    :session_key => '_packmule_server_session',
+    :session_key => '_space_pony_session',
     :secret      => 'c4325acc659935abe35e7470a94bc1cf619be400beb1242fd420628f84c5a4b889e6fb9256334801506fb632ec892c78365a8ce5160d2c63ee7d2b5847290049'
   }
 

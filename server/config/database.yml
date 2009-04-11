@@ -17,7 +17,7 @@
 development:
   adapter: mysql
   encoding: utf8
-  database: packmule_development
+  database: space_pony_development
   username: root
   password: letmein
   socket: /var/run/mysqld/mysqld.sock # debian/ubuntu
@@ -29,7 +29,7 @@ development:
 test:
   adapter: mysql
   encoding: utf8
-  database: packmule_test
+  database: space_pony_test
   username: root
   password: 
   socket: /var/run/mysqld/mysqld.sock # debian/ubuntu
@@ -38,7 +38,7 @@ test:
 production:
   adapter: mysql
   encoding: utf8
-  database: packmule_production
+  database: space_pony_production
   username: root
   password: 
   socket: /var/run/mysqld/mysqld.sock # debian/ubuntu

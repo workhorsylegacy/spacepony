@@ -27,6 +27,7 @@ class PidginAccountsController < ApplicationController
   # GET /pidgin_accounts/new.xml
   def new
     @pidgin_account = PidginAccount.new
+    @users = User.find(:all)
 
     respond_to do |format|
       format.html # new.html.erb
@@ -37,6 +38,7 @@ class PidginAccountsController < ApplicationController
   # GET /pidgin_accounts/1/edit
   def edit
     @pidgin_account = PidginAccount.find(params[:id])
+    @users = User.find(:all)
   end
 
   # POST /pidgin_accounts
@@ -50,6 +52,7 @@ class PidginAccountsController < ApplicationController
         format.html { redirect_to(@pidgin_account) }
         format.xml  { render :xml => @pidgin_account, :status => :created, :location => @pidgin_account }
       else
+        @users = User.find(:all)
         format.html { render :action => "new" }
         format.xml  { render :xml => @pidgin_account.errors, :status => :unprocessable_entity }
       end
@@ -67,6 +70,7 @@ class PidginAccountsController < ApplicationController
         format.html { redirect_to(@pidgin_account) }
         format.xml  { head :ok }
       else
+        @users = User.find(:all)
         format.html { render :action => "edit" }
         format.xml  { render :xml => @pidgin_account.errors, :status => :unprocessable_entity }
       end

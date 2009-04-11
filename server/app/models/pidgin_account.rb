@@ -6,7 +6,6 @@ class PidginAccount < ActiveRecord::Base
 	validates_presence_of :user_id, :name, :status, :protocol, :message => 'is required'
 
 	attr_accessor :password
-	attr_accessor :password_confirmation
 	validate :password_is_valid
 
 	def password
@@ -28,12 +27,10 @@ class PidginAccount < ActiveRecord::Base
 		return if errors['password'] != nil && errors['password'].length > 0
 
 		# Skip validation if there are no changes
-		return if self.id != nil && password.blank? && password_confirmation.blank?
+		return if self.id != nil && password.blank?
 
 		# Do password validation
-		if password_confirmation != password
-			errors.add('password', "does not match")
-		elsif hashed_password.blank?
+		if hashed_password.blank?
 			errors.add('password', "is required")
 		end
 	end

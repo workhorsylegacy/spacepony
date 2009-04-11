@@ -5,7 +5,7 @@
 
   <p>
     <%= f.label :user_id %><br />
-    <%= f.text_field :user_id %>
+    <%= f.select :user_id, @users.collect{|u| [u.name, u.id]}, {:selected => @pidgin_account.user_id || 'Select one'} %>
   </p>
   <p>
     <%= f.label :name %><br />

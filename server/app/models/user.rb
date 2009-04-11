@@ -46,8 +46,8 @@ class User < ActiveRecord::Base
 		# Do password validation
 		if password_confirmation != password
 			errors.add('password', "does not match")
-		elsif password.length < 6 || password.length > 12
-			errors.add('password', "must be between 6 and 12 characters long")
+		elsif password.length < 8
+			errors.add('password', "must be at least 8 characters long")
 		elsif hashed_password.blank?
 			errors.add('password', "is required")
 		end

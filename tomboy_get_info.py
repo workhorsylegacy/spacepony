@@ -1,4 +1,9 @@
+#! /usr/bin/env python
+
 import dbus, gobject, dbus.glib
+import re, imp, sys, inspect
+from PyRest import PyRest
+from PyRest import PyResource
 
 # Get the D-Bus session bus
 bus = dbus.SessionBus()
@@ -13,7 +18,16 @@ tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
 
 # Display the title of every note
 for note in tomboy.ListAllNotes():
-	pass#print tomboy.GetNoteTitle(note)
+	print tomboy.GetNoteTitle(note)
+
+# Get all the user
+rest = PyRest('http://localhost:3000')
+users = rest.get('users.json')
+
+User = PyResource('http://localhost:3000', 'users')
+print str(User.find_all())
+
+exit()
 
 # Display the contents of the note called Test
 #print tomboy.GetNoteContents(tomboy.FindNote("PSP"))

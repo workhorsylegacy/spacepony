@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 
 import dbus, gobject, dbus.glib
-import re, imp, sys, inspect
 from PyRest import PyRest
 from PyRest import PyResource
 
@@ -19,6 +18,18 @@ tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
 # Display the title of every note
 for note in tomboy.ListAllNotes():
 	print tomboy.GetNoteTitle(note)
+
+
+User = PyResource.connect("http://localhost:3000", "user")
+user = User()
+user.ass = 'da ass'
+print user.ass
+
+users = User.find_all()
+for user in users:
+	print user.name
+
+exit()
 
 # Get all the user
 rest = PyRest('http://localhost:3000')

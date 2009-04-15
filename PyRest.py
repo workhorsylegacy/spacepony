@@ -1,34 +1,57 @@
 
 import urllib2
 import json
+import re, imp, sys, inspect
 
-class PyResource(object):
+class PyResourceModel(object):
+	def __init__(self):
+		self._properties = {}
+
+	def __getattr__(self, name):
+		p = self._properties
+
+		if p.has_key(name):
+			return p[name]
+		else:
+			return None
+
+class PyResourceClass(object):
 	_py_rest = None
 	_resource_name = None
 
-	def __init__(self, domain, resource_name):
-		self._py_rest = PyRest(domain)
-		self._resource_name = resource_name
+	@classmethod
+	def find_all(klass):
+		json_objects = klass._py_rest.get(klass._resource_name + 's.json')
 
-	def __convert_rest_to_object(self, rest_object):
+		retval = []
+		for json_object in json_objects:
+			retval.append(klass.__json_to_object(json_object))
+
+		return retval
+
+	@classmethod
+	def __json_to_object(klass, json_object):
 		# Get the name of the class
-		key = rest_object.keys()[0]
+		key = json_object.keys()[0]
 		class_name = str(key.capitalize())
 
+		# Set all the properties with the values from the json
+		for name, value in json_object[key].iteritems():
+			eval('new_object.set_' + name + '(value)')
+
+		return new_object
+
+class PyResource(object):
+	@classmethod
+	def connect(klass, domain, resource_name):
+		# Get the name of the class
+		class_name = str(resource_name.capitalize())
+
 		# Generate the class code
-		code = 'class ' + class_name + '(object):\n'
-
-		code += '	def __init__(self):\n'
-		for name, value in rest_object[key].iteritems():
-			code += '		self._' + name + ' = None\n'
-			code += '\n'
-
-		for name, value in rest_object[key].iteritems():
-			code += '	def set_' + name + '(self, value):\n'
-			code += '		self._' + name + ' = value\n'
-			code += '	def get_' + name + '(self):\n'
-			code += '		return self._' + name + '\n'
-			code += '	property(set_' + name + ', get_' + name + ')\n\n'
+		code = 'import PyRest\n'
+		code += 'class ' + class_name + '(PyRest.PyResourceClass):\n'
+		code += '	_py_rest = PyRest.PyRest(\"' + domain + '\")\n'
+		code += '	_resource_name = \"' + resource_name + '\"\n\n'
 
 		# Add the class to a temp module
 		code = compile(code, '<string>', 'exec')
@@ -37,15 +60,10 @@ class PyResource(object):
 		exec code in temp.__dict__
 
 		# Create an instance of the object
-		new_class = eval('temp.User')
-		new_object = new_class()
+		return eval('temp.' + class_name)
 
-		# Set all the properties with the values from the json
-		for name, value in rest_object[key].iteritems():
-			eval('new_object.set_' + name + '(value)')
-
-		return new_object
-
+class RestError(Exception):
+	pass
 
 class PyRest(object):
 	_cookies = []
@@ -67,10 +85,14 @@ class PyRest(object):
 				get_params += key + '=' + urllib.urlencode(value) + ';'
 
 		# Send the request and get the response
+		response = None
 		request = urllib2.Request(self._domain + path, get_params)
 		request.get_method = lambda: 'GET'
 		#request.add_header('Content-Type', 'your/contenttype')
-		response = urllib2.urlopen(request)
+		try:
+			response = urllib2.urlopen(request)
+		except urllib2.URLError:
+			raise RestError("Could not connect to: " + self._domain + path)
 		return json.loads(response.read())
 
 

@@ -27,7 +27,8 @@ print user.ass
 
 users = User.find_all()
 for user in users:
-	print user.name
+	print 'name: ' + user.name
+	print 'email: ' + user.email
 
 exit()
 

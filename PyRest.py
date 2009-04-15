@@ -3,9 +3,15 @@ import urllib2
 import json
 import re, imp, sys, inspect
 
-class PyResourceModel(object):
+class PyResourceClass(object):
+	_py_rest = None
+	_resource_name = None
+
 	def __init__(self):
 		self._properties = {}
+
+	def set_property_by_name(self, name, value):
+		self._properties[name] = value
 
 	def __getattr__(self, name):
 		p = self._properties
@@ -14,10 +20,6 @@ class PyResourceModel(object):
 			return p[name]
 		else:
 			return None
-
-class PyResourceClass(object):
-	_py_rest = None
-	_resource_name = None
 
 	@classmethod
 	def find_all(klass):
@@ -36,8 +38,9 @@ class PyResourceClass(object):
 		class_name = str(key.capitalize())
 
 		# Set all the properties with the values from the json
+		new_object = eval(class_name + '()')
 		for name, value in json_object[key].iteritems():
-			eval('new_object.set_' + name + '(value)')
+			new_object.set_property_by_name(name, value)
 
 		return new_object
 
@@ -59,8 +62,10 @@ class PyResource(object):
 		sys.modules["temp"] = temp
 		exec code in temp.__dict__
 
-		# Create an instance of the object
-		return eval('temp.' + class_name)
+		# Return the class
+		new_class = eval('temp.' + class_name)
+		globals()[class_name] = new_class
+		return globals()[class_name]
 
 class RestError(Exception):
 	pass

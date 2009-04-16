@@ -1,5 +1,6 @@
 class UsersController < ApplicationController
   layout 'default'
+  protect_from_forgery :only => []
 
   # GET /users
   # GET /users.json

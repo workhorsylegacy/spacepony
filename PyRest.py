@@ -1,5 +1,5 @@
 
-import urllib2
+import urllib2, urllib
 import json
 import re, imp, sys, inspect
 
@@ -7,19 +7,20 @@ class PyResourceClass(object):
 	_py_rest = None
 	_resource_name = None
 
-	def __init__(self):
-		self._properties = {}
+	def save(self):
+		# Get the class
+		klass = type(self)
+		json_object = { klass._resource_name : self.__dict__ }
 
-	def set_property_by_name(self, name, value):
-		self._properties[name] = value
+		# Save a new model
+		if not self.__dict__.has_key('id'):
+			path = klass._resource_name + 's'
+			klass._py_rest.post(path, json_object)
 
-	def __getattr__(self, name):
-		p = self._properties
-
-		if p.has_key(name):
-			return p[name]
+		# Update an existing model
 		else:
-			return None
+			path = klass._resource_name + 's/' + str(self.__dict__['id'])
+			klass._py_rest.put(path, self.__dict__)
 
 	@classmethod
 	def find_all(klass):
@@ -40,7 +41,7 @@ class PyResourceClass(object):
 		# Set all the properties with the values from the json
 		new_object = eval(class_name + '()')
 		for name, value in json_object[key].iteritems():
-			new_object.set_property_by_name(name, value)
+			new_object.__dict__[name] = value
 
 		return new_object
 
@@ -80,7 +81,7 @@ class PyRest(object):
 		if not self._domain.endswith('/'):
 			self._domain +=  '/'
 
-	# FIXME: Update this to get the cookies too
+	# FIXME: Update this to get the cookies too?
 	def get(self, path, params = {}):
 		# Assemble to http get arguments in url format
 		get_params = ''
@@ -93,11 +94,41 @@ class PyRest(object):
 		response = None
 		request = urllib2.Request(self._domain + path, get_params)
 		request.get_method = lambda: 'GET'
-		#request.add_header('Content-Type', 'your/contenttype')
+		request.add_header("Content-Type", "application/json")
+
+		# FIXME: Change this to only return the http status code and response
 		try:
 			response = urllib2.urlopen(request)
 		except urllib2.URLError:
 			raise RestError("Could not connect to: " + self._domain + path)
+		return json.loads(response.read())
+
+	def post(self, path, json_object = {}):
+		# Send the request and get the response
+		response = None
+		request = urllib2.Request(self._domain + path)
+		request.get_method = lambda: 'POST'
+		request.add_header("Content-Type", "application/json")
+		request.add_data(str(json_object))
+
+		# FIXME: Change this to only return the http status code and response
+		try:
+			response = urllib2.urlopen(request)
+		except urllib2.URLError, err:
+			if err.code == 422: # Unprocessed Entity
+				server_errors = json.loads(err.read())
+				errors = ""
+				for field, error in server_errors:
+					errors += field + ' ' + error + '\n'
+				raise RestError(errors)
+			elif err.code == 500: # Internal Server Error
+				print err.read()
+				raise RestError("Error on the server")
+				return None
+			else:
+				#print err.read()
+				return None
+				raise RestError("Could not connect to: " + self._domain + path)
 		return json.loads(response.read())
 
 

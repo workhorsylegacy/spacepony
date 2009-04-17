@@ -36,16 +36,16 @@ class PyResourceClass(object):
 
 		# Save a new model
 		if not self.__dict__.has_key('id'):
-			path = klass._resource_name + 's'
+			path = klass._resource_name + 's.json'
 			response = klass._py_rest.post(path, json_object)
 		# Update an existing model
 		else:
-			path = klass._resource_name + 's/' + str(self.id)
-			response = klass._py_rest.put(path, self.__dict__)
+			path = klass._resource_name + 's/' + str(self.id) + '.json'
+			response = klass._py_rest.put(path, json_object)
 
 		# Deal with the response code
 		if response.code == 201: # Created
-			self.id = response.body['user']['id']
+			self.id = response.body[klass._resource_name]['id']
 		elif response.code == 200: # OK
 			pass
 		elif response.code == 422: # Unprocessed Entity
@@ -55,7 +55,7 @@ class PyResourceClass(object):
 				errors += field + ' ' + error + '\n'
 			raise RestError(errors)
 		elif response.code == 500: # Internal Server Error
-			print err.read()
+			print response.read()
 			raise RestError("Error on the server")
 			return None
 		else:
@@ -151,12 +151,19 @@ class PyRest(object):
 		request.get_method = lambda: 'GET'
 		request.add_header("Content-Type", "application/json")
 
-		# Return the status code and response
+		# Get the response
+		response = None
 		try:
 			response = urllib2.urlopen(request)
-			return Response(response.code, json.loads(response.read()))
 		except urllib2.URLError, err:
-			return Response(err.code, json.loads(err.read()))
+			response = err
+
+		# Return the status code and response
+		body = response.read()
+		if body == ' ' or body == '':
+			return Response(response.code, body)
+		else:
+			return Response(response.code, json.loads(body))
 
 	def post(self, path, json_object = {}):
 		# Send the request and get the response
@@ -166,12 +173,19 @@ class PyRest(object):
 		request.add_header("Content-Type", "application/json")
 		request.add_data(str(json_object))
 
-		# Return the status code and response
+		# Get the response
+		response = None
 		try:
 			response = urllib2.urlopen(request)
-			return Response(response.code, json.loads(response.read()))
 		except urllib2.URLError, err:
-			return Response(err.code, json.loads(err.read()))
+			response = err
+
+		# Return the status code and response
+		body = response.read()
+		if body == ' ' or body == '':
+			return Response(response.code, body)
+		else:
+			return Response(response.code, json.loads(body))
 
 	def put(self, path, json_object = {}):
 		# Send the request and get the response
@@ -181,16 +195,19 @@ class PyRest(object):
 		request.add_header("Content-Type", "application/json")
 		request.add_data(str(json_object))
 
-		# Return the status code and response
+		# Get the response
+		response = None
 		try:
 			response = urllib2.urlopen(request)
-			body = response.read()
-			if body == ' ' or body == '':
-				return Response(response.code, body)
-			else:
-				return Response(response.code, json.loads(body))
 		except urllib2.URLError, err:
-			return Response(err.code, json.loads(err.read()))
+			response = err
+
+		# Return the status code and response
+		body = response.read()
+		if body == ' ' or body == '':
+			return Response(response.code, body)
+		else:
+			return Response(response.code, json.loads(body))
 
 	def delete(self, path, json_object = {}):
 		# Send the request and get the response
@@ -200,14 +217,17 @@ class PyRest(object):
 		request.add_header("Content-Type", "application/json")
 		request.add_data(str(json_object))
 
-		# Return the status code and response
+		# Get the response
+		response = None
 		try:
 			response = urllib2.urlopen(request)
-			body = response.read()
-			if body == ' ' or body == '':
-				return Response(response.code, body)
-			else:
-				return Response(response.code, json.loads(body))
 		except urllib2.URLError, err:
-			return Response(err.code, json.loads(err.read()))
+			response = err
+
+		# Return the status code and response
+		body = response.read()
+		if body == ' ' or body == '':
+			return Response(response.code, body)
+		else:
+			return Response(response.code, json.loads(body))
 

@@ -16,44 +16,9 @@ tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
 #tomboy.DisplayNote(tomboy.FindStartHereNote())
 
 # Display the title of every note
-#for note in tomboy.ListAllNotes():
-#	print tomboy.GetNoteTitle(note)
+for note in tomboy.ListAllNotes():
+	print tomboy.GetNoteTitle(note)
 
-
-# Create the User model
-User = PyResource.connect("http://localhost:3000", "user")
-
-# Create a user and save it
-user = User()
-user.name = 'da ass'
-user.email = 'da email'
-user.password = 'blah blah blah'
-user.password_confirmation = 'blah blah blah'
-user.save()
-
-# Update the user
-user.name = "The Count of Poopicristo"
-user.save()
-
-# Delete the user
-user.delete()
-
-# List all the users
-users = User.find_all()
-for user in users:
-	print 'name: ' + user.name
-	print 'email: ' + user.email
-
-exit()
-
-# Get all the users
-rest = PyRest('http://localhost:3000')
-users = rest.get('users.json')
-
-User = PyResource('http://localhost:3000', 'users')
-print str(User.find_all())
-
-exit()
 
 # Display the contents of the note called Test
 #print tomboy.GetNoteContents(tomboy.FindNote("PSP"))

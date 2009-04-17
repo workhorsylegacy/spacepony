@@ -35,6 +35,9 @@ user.save()
 user.name = "The Count of Poopicristo"
 user.save()
 
+# Delete the user
+user.delete()
+
 # List all the users
 users = User.find_all()
 for user in users:

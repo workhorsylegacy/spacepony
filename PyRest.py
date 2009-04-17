@@ -61,6 +61,22 @@ class PyResourceClass(object):
 		else:
 			raise Exception('Unknown error when saving: ' + str(response.code) + ' ' + str(response.body))
 
+	def delete(self):
+		# Get the class
+		klass = type(self)
+		json_object = { klass._resource_name : self.__dict__ }
+		response = None
+
+		# Delete the model
+		path = klass._resource_name + 's/' + str(self.id)
+		response = klass._py_rest.delete(path, json_object)
+
+		# Deal with the response code
+		if response.code == 200: # OK
+			self.__dict__.pop('id')
+		else:
+			raise Exception('Unknown error when deleting: ' + str(response.code) + ' ' + str(response.body))
+
 	@classmethod
 	def find_all(klass):
 		response = klass._py_rest.get(klass._resource_name + 's.json')
@@ -162,6 +178,25 @@ class PyRest(object):
 		response = None
 		request = urllib2.Request(self._domain + path)
 		request.get_method = lambda: 'PUT'
+		request.add_header("Content-Type", "application/json")
+		request.add_data(str(json_object))
+
+		# Return the status code and response
+		try:
+			response = urllib2.urlopen(request)
+			body = response.read()
+			if body == ' ' or body == '':
+				return Response(response.code, body)
+			else:
+				return Response(response.code, json.loads(body))
+		except urllib2.URLError, err:
+			return Response(err.code, json.loads(err.read()))
+
+	def delete(self, path, json_object = {}):
+		# Send the request and get the response
+		response = None
+		request = urllib2.Request(self._domain + path)
+		request.get_method = lambda: 'DELETE'
 		request.add_header("Content-Type", "application/json")
 		request.add_data(str(json_object))
 

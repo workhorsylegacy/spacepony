@@ -1,0 +1,28 @@
+<h1>Editing tomboy note</h1>
+
+<% form_for(@tomboy_note) do |f| %>
+  <%= f.error_messages %>
+
+  <p>
+    <%= f.label :user_id %><br />
+    <%= f.select :user_id, @users.collect{|u| [u.name, u.id]}, {:selected => @tomboy_note.user_id || 'Select one'} %>
+  </p>
+  <p>
+    <%= f.label :name %><br />
+    <%= f.text_field :name %>
+  </p>
+  <p>
+    <%= f.label :body %><br />
+    <%= f.text_field :body %>
+  </p>
+  <p>
+    <%= f.label :tag %><br />
+    <%= f.text_field :tag %>
+  </p>
+  <p>
+    <%= f.submit "Update" %>
+  </p>
+<% end %>
+
+<%= link_to 'Show', @tomboy_note %> |
+<%= link_to 'Back', tomboy_note_path %>

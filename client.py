@@ -11,10 +11,15 @@ PidginAccount = PyResource.connect("http://localhost:3000", "pidgin_account")
 # Initiate a connection to the Session Bus
 bus = dbus.SessionBus()
 
-# Associate Pidgin's D-Bus interface with Python objects
+# Get Pidgin's D-Bus interface
 obj = bus.get_object("im.pidgin.purple.PurpleService", 
 					"/im/pidgin/purple/PurpleObject")
 purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
+
+# Get Tomboy's D-Bus interface
+obj = bus.get_object("org.gnome.Tomboy", 
+					"/org/gnome/Tomboy/RemoteControl")
+tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
 
 
 # Specify status ID values

@@ -1,0 +1,23 @@
+<p>
+  <b>User:</b>
+  <%=h @tomboy_note.user_id %>
+</p>
+
+<p>
+  <b>Name:</b>
+  <%=h @tomboy_note.name %>
+</p>
+
+<p>
+  <b>Body:</b>
+  <%=h @tomboy_note.body %>
+</p>
+
+<p>
+  <b>Tag:</b>
+  <%=h @tomboy_note.tag %>
+</p>
+
+
+<%= link_to 'Edit', edit_tomboy_note_path(@tomboy_note) %> |
+<%= link_to 'Back', tomboy_notes_path %>

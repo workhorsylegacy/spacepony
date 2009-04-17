@@ -2,6 +2,7 @@
 
 class User < ActiveRecord::Base
 	has_many :pidgin_accounts
+	has_many :tomboy_notes
 
 	validates_uniqueness_of :name, :email, :message => "is already used by another user"
 	validates_presence_of :name, :email, :message => 'is required'

@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20090410201325) do
+ActiveRecord::Schema.define(:version => 20090417230352) do
 
   create_table "pidgin_accounts", :force => true do |t|
     t.integer  "user_id",         :limit => 11,                 :null => false
@@ -20,6 +20,15 @@ ActiveRecord::Schema.define(:version => 20090410201325) do
     t.string   "message"
     t.string   "protocol",                      :default => "", :null => false
     t.string   "icon"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+  end
+
+  create_table "tomboy_notes", :force => true do |t|
+    t.integer  "user_id",    :limit => 11, :null => false
+    t.string   "name",                     :null => false
+    t.string   "body",                     :null => false
+    t.string   "tag",                      :null => false
     t.datetime "created_at"
     t.datetime "updated_at"
   end

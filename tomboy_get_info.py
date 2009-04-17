@@ -20,8 +20,10 @@ tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
 #	print tomboy.GetNoteTitle(note)
 
 
-
+# Create the User model
 User = PyResource.connect("http://localhost:3000", "user")
+
+# Create a user and save it
 user = User()
 user.name = 'da ass'
 user.email = 'da email'
@@ -29,6 +31,11 @@ user.password = 'blah blah blah'
 user.password_confirmation = 'blah blah blah'
 user.save()
 
+# Update the user
+user.name = "The Count of Poopicristo"
+user.save()
+
+# List all the users
 users = User.find_all()
 for user in users:
 	print 'name: ' + user.name

@@ -3,6 +3,27 @@ import urllib2, urllib
 import json
 import re, imp, sys, inspect
 
+class Response(object):
+	def __init__(self, code, body):
+		self._code = code
+		self._body = body
+
+	@property
+	def code(self):
+		return self._code
+
+	@code.setter
+	def code(self, value):
+		self._code = value
+
+	@property
+	def body(self):
+		return self._body
+
+	@body.setter
+	def body(self, value):
+		self._body = value
+
 class PyResourceClass(object):
 	_py_rest = None
 	_resource_name = None
@@ -11,23 +32,41 @@ class PyResourceClass(object):
 		# Get the class
 		klass = type(self)
 		json_object = { klass._resource_name : self.__dict__ }
+		response = None
 
 		# Save a new model
 		if not self.__dict__.has_key('id'):
 			path = klass._resource_name + 's'
-			klass._py_rest.post(path, json_object)
-
+			response = klass._py_rest.post(path, json_object)
 		# Update an existing model
 		else:
-			path = klass._resource_name + 's/' + str(self.__dict__['id'])
-			klass._py_rest.put(path, self.__dict__)
+			path = klass._resource_name + 's/' + str(self.id)
+			response = klass._py_rest.put(path, self.__dict__)
+
+		# Deal with the response code
+		if response.code == 201: # Created
+			self.id = response.body['user']['id']
+		elif response.code == 200: # OK
+			pass
+		elif response.code == 422: # Unprocessed Entity
+			server_errors = response.body
+			errors = ""
+			for field, error in server_errors:
+				errors += field + ' ' + error + '\n'
+			raise RestError(errors)
+		elif response.code == 500: # Internal Server Error
+			print err.read()
+			raise RestError("Error on the server")
+			return None
+		else:
+			raise Exception('Unknown error when saving: ' + str(response.code) + ' ' + str(response.body))
 
 	@classmethod
 	def find_all(klass):
-		json_objects = klass._py_rest.get(klass._resource_name + 's.json')
+		response = klass._py_rest.get(klass._resource_name + 's.json')
 
 		retval = []
-		for json_object in json_objects:
+		for json_object in response.body:
 			retval.append(klass.__json_to_object(json_object))
 
 		return retval
@@ -96,12 +135,12 @@ class PyRest(object):
 		request.get_method = lambda: 'GET'
 		request.add_header("Content-Type", "application/json")
 
-		# FIXME: Change this to only return the http status code and response
+		# Return the status code and response
 		try:
 			response = urllib2.urlopen(request)
-		except urllib2.URLError:
-			raise RestError("Could not connect to: " + self._domain + path)
-		return json.loads(response.read())
+			return Response(response.code, json.loads(response.read()))
+		except urllib2.URLError, err:
+			return Response(err.code, json.loads(err.read()))
 
 	def post(self, path, json_object = {}):
 		# Send the request and get the response
@@ -111,24 +150,29 @@ class PyRest(object):
 		request.add_header("Content-Type", "application/json")
 		request.add_data(str(json_object))
 
-		# FIXME: Change this to only return the http status code and response
+		# Return the status code and response
 		try:
 			response = urllib2.urlopen(request)
+			return Response(response.code, json.loads(response.read()))
 		except urllib2.URLError, err:
-			if err.code == 422: # Unprocessed Entity
-				server_errors = json.loads(err.read())
-				errors = ""
-				for field, error in server_errors:
-					errors += field + ' ' + error + '\n'
-				raise RestError(errors)
-			elif err.code == 500: # Internal Server Error
-				print err.read()
-				raise RestError("Error on the server")
-				return None
-			else:
-				#print err.read()
-				return None
-				raise RestError("Could not connect to: " + self._domain + path)
-		return json.loads(response.read())
+			return Response(err.code, json.loads(err.read()))
 
+	def put(self, path, json_object = {}):
+		# Send the request and get the response
+		response = None
+		request = urllib2.Request(self._domain + path)
+		request.get_method = lambda: 'PUT'
+		request.add_header("Content-Type", "application/json")
+		request.add_data(str(json_object))
+
+		# Return the status code and response
+		try:
+			response = urllib2.urlopen(request)
+			body = response.read()
+			if body == ' ' or body == '':
+				return Response(response.code, body)
+			else:
+				return Response(response.code, json.loads(body))
+		except urllib2.URLError, err:
+			return Response(err.code, json.loads(err.read()))
 

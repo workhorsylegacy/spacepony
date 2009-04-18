@@ -27,8 +27,8 @@ ActiveRecord::Schema.define(:version => 20090417230352) do
   create_table "tomboy_notes", :force => true do |t|
     t.integer  "user_id",    :limit => 11, :null => false
     t.string   "name",                     :null => false
-    t.string   "body",                     :null => false
-    t.string   "tag",                      :null => false
+    t.text     "body",                     :null => false
+    t.text     "tag"
     t.datetime "created_at"
     t.datetime "updated_at"
   end

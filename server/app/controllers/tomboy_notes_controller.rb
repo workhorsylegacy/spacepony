@@ -1,3 +1,6 @@
+
+require 'base64'
+
 class TomboyNotesController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []

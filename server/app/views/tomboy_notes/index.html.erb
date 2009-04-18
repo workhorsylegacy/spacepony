@@ -12,7 +12,7 @@
   <tr>
     <td><%=h tomboy_note.user_id %></td>
     <td><%=h tomboy_note.name %></td>
-    <td><%=h tomboy_note.body %></td>
+    <td><%=h decode64(tomboy_note.body)[0..19] + ' ...' %></td>
     <td><%=h tomboy_note.tag %></td>
     <td><%= link_to 'Show', tomboy_note %></td>
     <td><%= link_to 'Edit', edit_tomboy_note_path(tomboy_note) %></td>

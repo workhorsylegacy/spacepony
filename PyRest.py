@@ -64,12 +64,11 @@ class PyResourceClass(object):
 	def delete(self):
 		# Get the class
 		klass = type(self)
-		json_object = { klass._resource_name : self.__dict__ }
 		response = None
 
 		# Delete the model
-		path = klass._resource_name + 's/' + str(self.id)
-		response = klass._py_rest.delete(path, json_object)
+		path = klass._resource_name + 's/' + str(self.id) + '.json'
+		response = klass._py_rest.delete(path)
 
 		# Deal with the response code
 		if response.code == 200: # OK
@@ -209,13 +208,12 @@ class PyRest(object):
 		else:
 			return Response(response.code, json.loads(body))
 
-	def delete(self, path, json_object = {}):
+	def delete(self, path):
 		# Send the request and get the response
 		response = None
 		request = urllib2.Request(self._domain + path)
 		request.get_method = lambda: 'DELETE'
 		request.add_header("Content-Type", "application/json")
-		request.add_data(str(json_object))
 
 		# Get the response
 		response = None

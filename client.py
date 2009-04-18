@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
 import dbus, gobject, dbus.glib
+import base64
 from PyRest import PyRest
 from PyRest import PyResource
+
 
 # Create the models
 User = PyResource.connect("http://localhost:3000", "user")
 PidginAccount = PyResource.connect("http://localhost:3000", "pidgin_account")
+TomboyNote = PyResource.connect("http://localhost:3000", "tomboy_note")
 
 # Initiate a connection to the Session Bus
 bus = dbus.SessionBus()
@@ -86,6 +89,18 @@ def update_pidgin_account_status(account_id, old, new):
 			print "Changed Pidgin status for account " + pidgin_account.name + " to '" + pidgin_account.status + \
 				"' with the message '" + pidgin_account.message + "'."
 
+def add_tomboy_note(note):
+	tomboy_note = TomboyNote()
+	tomboy_note.user_id = user.id
+	tomboy_note.name = str(tomboy.GetNoteTitle(note))
+	tomboy_note.body = base64.b64encode(str(tomboy.GetNoteCompleteXml(note)))
+	tags = []
+	for tag in tomboy.GetTagsForNote(note):
+		tags.append(str(tag))
+	tomboy_note.tag = str.join(', ', tags)
+
+	tomboy_note.save()
+
 # Update the status on the server when it changes on the client
 def onAccountStatusChanged(account_id, old, new):
 	update_pidgin_account_status(account_id, old, new)
@@ -117,6 +132,9 @@ print "client running ..."
 for pidgin_account in PidginAccount.find_all():
 	pidgin_account.delete()
 
+for tomboy_note in TomboyNote.find_all():
+	tomboy_note.delete()
+
 for user in User.find_all():
 	user.delete()
 
@@ -128,6 +146,10 @@ user.email = 'mattjones@workhorsy.org'
 user.password = 'password'
 user.password_confirmation = 'password'
 user.save()
+
+# Add all the tomboy notes
+for note in tomboy.ListAllNotes():
+	add_tomboy_note(note)
 
 # Add an account for each pidgin account
 for account_id in purple.PurpleAccountsGetAllActive():

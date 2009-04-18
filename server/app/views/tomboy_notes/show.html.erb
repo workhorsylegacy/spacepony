@@ -10,7 +10,7 @@
 
 <p>
   <b>Body:</b>
-  <%=h decode64(@tomboy_note.body) %>
+  <%=h Base64.decode64(@tomboy_note.body) %>
 </p>
 
 <p>

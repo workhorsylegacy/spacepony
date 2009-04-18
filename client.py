@@ -56,7 +56,7 @@ def add_pidgin_account(account_id):
 	pidgin_account.save()
 	pidgin_accounts[account_id] = pidgin_account
 
-	print "Added Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
+	print "Server: Added Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
 def remove_pidgin_account(account_id):
 	# Remove the account only if it exists
@@ -70,7 +70,7 @@ def remove_pidgin_account(account_id):
 	pidgin_account.delete()
 	pidgin_accounts.pop(account_id)
 
-	print "Removed Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
+	print "Server: Removed Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
 def update_pidgin_account_status(account_id, old, new):
 	# Look through all the pidgin accounts to find the one that changed
@@ -86,10 +86,17 @@ def update_pidgin_account_status(account_id, old, new):
 			pidgin_account.message = str(purple.PurpleSavedstatusGetMessage(status) or "")
 			pidgin_account.save()
 
-			print "Changed Pidgin status for account " + pidgin_account.name + " to '" + pidgin_account.status + \
+			print "Server: Changed Pidgin status for account " + pidgin_account.name + " to '" + pidgin_account.status + \
 				"' with the message '" + pidgin_account.message + "'."
 
 def add_tomboy_note(note):
+	note_id = str(note)
+
+	# Skip adding the note if it already exists
+	if tomboy_notes.has_key(note_id):
+		return
+
+	# Save the note
 	tomboy_note = TomboyNote()
 	tomboy_note.user_id = user.id
 	tomboy_note.name = str(tomboy.GetNoteTitle(note))
@@ -98,19 +105,66 @@ def add_tomboy_note(note):
 	for tag in tomboy.GetTagsForNote(note):
 		tags.append(str(tag))
 	tomboy_note.tag = str.join(', ', tags)
+	tomboy_note.save()
+	tomboy_notes[note_id] = tomboy_note
 
+	print "Server: Note added: " + tomboy_note.name
+
+def update_tomboy_note(note):
+	note_id = str(note)
+
+	# Skip the note if it does not exist
+	if not tomboy_notes.has_key(note_id):
+		return
+
+	# Save the changes to the note
+	tomboy_note = tomboy_notes[note_id]
+	tomboy_note.name = str(tomboy.GetNoteTitle(note))
+	tomboy_note.body = base64.b64encode(str(tomboy.GetNoteCompleteXml(note)))
+	tags = []
+	for tag in tomboy.GetTagsForNote(note):
+		tags.append(str(tag))
+	tomboy_note.tag = str.join(', ', tags)
 	tomboy_note.save()
 
-# Update the status on the server when it changes on the client
+	print "Server: Note updated: " + tomboy_note.name
+
+
+def remove_tomboy_note(note):
+	note_id = str(note)
+
+	# Remove the note only if it exists
+	tomboy_note = None
+	if tomboy_notes.has_key(note_id):
+		tomboy_note = tomboy_notes[note_id]
+	else:
+		return
+
+	# Remove the note
+	tomboy_note.delete()
+	tomboy_notes.pop(note_id)
+
+	print "Server: Note deleted: " + tomboy_note.name
+
+
 def onAccountStatusChanged(account_id, old, new):
 	update_pidgin_account_status(account_id, old, new)
 
-# Add accounts to the server when it is added on the client
 def onAccountAdded(account_id):
 	add_pidgin_account(account_id)
 
 def onAccountRemoved(account_id):
 	remove_pidgin_account(account_id)
+
+def onNoteAdded(note):
+	add_tomboy_note(note)
+
+def onNoteSaved(note):
+	update_tomboy_note(note)
+
+# FIXME: Figure out what the second argument is. There is no documentation
+def onNoteDeleted(note, unknown_object):
+	remove_tomboy_note(note)
 
 # Bind the events
 bus.add_signal_receiver(onAccountStatusChanged,
@@ -124,6 +178,20 @@ bus.add_signal_receiver(onAccountAdded,
 bus.add_signal_receiver(onAccountRemoved,
 						dbus_interface = "im.pidgin.purple.PurpleInterface",
 						signal_name = "AccountRemoved")
+
+bus.add_signal_receiver(onNoteSaved,
+						dbus_interface = "org.gnome.Tomboy.RemoteControl",
+						signal_name = "NoteSaved")
+
+bus.add_signal_receiver(onNoteAdded,
+						dbus_interface = "org.gnome.Tomboy.RemoteControl",
+						signal_name = "NoteAdded")
+
+bus.add_signal_receiver(onNoteDeleted,
+						dbus_interface = "org.gnome.Tomboy.RemoteControl",
+						signal_name = "NoteDeleted")
+
+
 
 
 print "client running ..."
@@ -140,6 +208,7 @@ for user in User.find_all():
 
 # Create a user and save it
 pidgin_accounts = {}
+tomboy_notes = {}
 user = User()
 user.name = 'mattjones'
 user.email = 'mattjones@workhorsy.org'
@@ -151,7 +220,7 @@ user.save()
 for note in tomboy.ListAllNotes():
 	add_tomboy_note(note)
 
-# Add an account for each pidgin account
+# Add all the pidgin accounts
 for account_id in purple.PurpleAccountsGetAllActive():
 	add_pidgin_account(account_id)
 

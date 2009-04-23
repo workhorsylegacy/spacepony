@@ -10,6 +10,7 @@ class UsersController < ApplicationController
     respond_to do |format|
       format.html # index.html.erb
       format.json  { render :json => @users }
+      format.xml  { render :xml => @users }
     end
   end
 
@@ -21,6 +22,7 @@ class UsersController < ApplicationController
     respond_to do |format|
       format.html # show.html.erb
       format.json  { render :json => @user }
+      format.xml  { render :xml => @user }
     end
   end
 
@@ -32,6 +34,7 @@ class UsersController < ApplicationController
     respond_to do |format|
       format.html # new.html.erb
       format.json  { render :json => @user }
+      format.xml  { render :xml => @user }
     end
   end
 
@@ -50,9 +53,11 @@ class UsersController < ApplicationController
         flash[:notice] = 'User was successfully created.'
         format.html { redirect_to(@user) }
         format.json  { render :json => @user, :status => :created, :location => @user }
+        format.xml  { render :xml => @user, :status => :created, :location => @user }
       else
         format.html { render :action => "new" }
         format.json  { render :json => @user.errors, :status => :unprocessable_entity }
+        format.xml  { render :xml => @user.errors, :status => :unprocessable_entity }
       end
     end
   end
@@ -67,9 +72,11 @@ class UsersController < ApplicationController
         flash[:notice] = 'User was successfully updated.'
         format.html { redirect_to(@user) }
         format.json  { head :ok }
+        format.xml  { head :ok }
       else
         format.html { render :action => "edit" }
         format.json  { render :json => @user.errors, :status => :unprocessable_entity }
+        format.xml  { render :xml => @user.errors, :status => :unprocessable_entity }
       end
     end
   end
@@ -83,6 +90,7 @@ class UsersController < ApplicationController
     respond_to do |format|
       format.html { redirect_to(users_url) }
       format.json  { head :ok }
+      format.xml  { head :ok }
     end
   end
 end

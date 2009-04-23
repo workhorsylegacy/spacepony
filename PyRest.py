@@ -1,4 +1,8 @@
 
+
+# This library is obsolete. Use pyactiveresource instead.
+
+"""
 import urllib2, urllib
 import json
 import re, imp, sys, inspect
@@ -228,4 +232,5 @@ class PyRest(object):
 			return Response(response.code, body)
 		else:
 			return Response(response.code, json.loads(body))
+"""
 

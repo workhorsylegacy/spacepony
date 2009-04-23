@@ -1,5 +1,5 @@
 ActionController::Routing::Routes.draw do |map|
-  map.resources :tomboy_notes
+  map.resources :tomboy_notes, :collection => { :poop => :get }
   map.resources :pidgin_accounts
   map.resources :users
 

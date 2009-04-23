@@ -13,6 +13,7 @@ class TomboyNotesController < ApplicationController
     respond_to do |format|
       format.html # index.html.erb
       format.json  { render :json => @tomboy_notes }
+      format.xml  { render :xml => @tomboy_notes }
     end
   end
 
@@ -24,6 +25,7 @@ class TomboyNotesController < ApplicationController
     respond_to do |format|
       format.html # show.html.erb
       format.json  { render :json => @tomboy_note }
+      format.xml  { render :xml => @tomboy_note }
     end
   end
 
@@ -36,6 +38,7 @@ class TomboyNotesController < ApplicationController
     respond_to do |format|
       format.html # new.html.erb
       format.json  { render :json => @tomboy_note }
+      format.xml  { render :xml => @tomboy_note }
     end
   end
 
@@ -55,10 +58,12 @@ class TomboyNotesController < ApplicationController
         flash[:notice] = 'Tomboy Note was successfully created.'
         format.html { redirect_to(@tomboy_note) }
         format.json  { render :json => @tomboy_note, :status => :created, :location => @tomboy_note }
+        format.xml  { render :xml => @tomboy_note, :status => :created, :location => @tomboy_note }
       else
         @users = User.find(:all)
         format.html { render :action => "new" }
         format.json  { render :json => @tomboy_note.errors, :status => :unprocessable_entity }
+        format.xml  { render :xml => @tomboy_note.errors, :status => :unprocessable_entity }
       end
     end
   end
@@ -73,10 +78,12 @@ class TomboyNotesController < ApplicationController
         flash[:notice] = 'Tomboy Note was successfully updated.'
         format.html { redirect_to(@tomboy_note) }
         format.json  { head :ok }
+        format.xml  { head :ok }
       else
         @users = User.find(:all)
         format.html { render :action => "edit" }
         format.json  { render :json => @tomboy_note.errors, :status => :unprocessable_entity }
+        format.xml  { render :xml => @tomboy_note.errors, :status => :unprocessable_entity }
       end
     end
   end
@@ -90,6 +97,18 @@ class TomboyNotesController < ApplicationController
     respond_to do |format|
       format.html { redirect_to(tomboy_notes_url) }
       format.json  { head :ok }
+      format.xml  { head :ok }
+    end
+  end
+
+  # FIXME: Remove this. It is just a test for custom rest methods
+  def poop
+    @tomboy_notes = TomboyNote.find(:all, :conditions => ["name = ?", params[:name]])
+
+    respond_to do |format|
+      format.html # index.html.erb
+      format.json  { render :json => @tomboy_notes }
+      format.xml  { render :xml => @tomboy_notes }
     end
   end
 end

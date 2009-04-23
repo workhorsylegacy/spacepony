@@ -101,12 +101,29 @@ class TomboyNotesController < ApplicationController
     end
   end
 
-  # FIXME: Remove this. It is just a test for custom rest methods
-  def poop
-    @tomboy_notes = TomboyNote.find(:all, :conditions => ["name = ?", params[:name]])
+  # GET /tomboy_notes/all_note_meta_data
+  # GET /tomboy_notes/all_note_meta_data.json
+  def all_note_meta_data
+    @data = {}
+    TomboyNote.find(:all).each do |n|
+        @data[n.name] = { :id => n.id, 
+                          :updated_at => n.updated_at}
+    end
 
     respond_to do |format|
-      format.html # index.html.erb
+      format.html # all_names_and_updated_ats.html.erb
+      format.json  { render :json => @data }
+      format.xml  { render :xml => @data }
+    end
+  end
+
+  def get_newer
+    newest_updated_at = DateTime.parse(params['newest_updated_at'])
+
+    @tomboy_notes = TomboyNote.find(:all, :conditions => ['updated_at > ?', newest_updated_at])
+
+    respond_to do |format|
+      format.html # get_newer.html.erb
       format.json  { render :json => @tomboy_notes }
       format.xml  { render :xml => @tomboy_notes }
     end

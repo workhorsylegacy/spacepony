@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import dbus, gobject, dbus.glib
-import base64
+import base64, time
 import sys, threading, traceback
 from pyactiveresource.activeresource import ActiveResource
 
@@ -39,6 +39,13 @@ STATUS_AWAY = 5
 STATUS_EXTENDED_AWAY = 6
 STATUS_MOBILE = 7
 STATUS_TUNE = 8
+
+# FIXME: Globals are bad
+pidgin_accounts = {}
+tomboy_notes = {}
+user = None
+newest_updated_at = None
+needs_first_sync = True
 
 def add_pidgin_account(account_id, save_now = True):
 	# Skip adding the account if it already exists
@@ -97,6 +104,7 @@ def update_pidgin_account_status(account_id, old, new):
 				"' with the message '" + pidgin_account.message + "'."
 
 def add_tomboy_note(note, save_now = True):
+	global newest_updated_at
 	note_name = str(tomboy.GetNoteTitle(note))
 
 	# Skip adding the note if it already exists
@@ -116,6 +124,10 @@ def add_tomboy_note(note, save_now = True):
 	if save_now:
 		tomboy_note.save()
 	tomboy_notes[note_name] = tomboy_note
+
+	# Save the updated_at as the new greatest
+	if tomboy_note.id:
+		newest_updated_at = tomboy_note.updated_at
 
 	if save_now:
 		print "Server: Note added: " + tomboy_note.name
@@ -157,56 +169,78 @@ def remove_tomboy_note(note):
 	print "Server: Note deleted: " + tomboy_note.name
 
 
-class Puller(threading.Thread):
-	def __init__(self, name='Puller'):
+"""
+Syncs notes to and from the server
+"""
+class Syncer(threading.Thread):
+	def __init__(self, name='Syncer'):
 		self._stopevent = threading.Event()
 		threading.Thread.__init__(self, name=name)
 
+	def __first_sync(self):
+		global newest_updated_at
+		global needs_first_sync
+
+		# Add all the local tomboy notes
+		for note in tomboy.ListAllNotes():
+			add_tomboy_note(note, False)
+
+		# Get list of all note titles and change dates from server
+		datas = TomboyNote.get('all_note_meta_data')
+		if len(datas) == 0 or str(datas) == "" or datas == "\n":
+			datas = {}
+
+		# Save new client notes to the server
+		for name, tomboy_note in tomboy_notes.iteritems():
+			if not datas.has_key(tomboy_note.name):
+				tomboy_note.save()
+				print "Server: Note added: " + tomboy_note.name
+
+		# Get new notes from the server
+		for name, data in datas.iteritems():
+			if not tomboy_notes.has_key(name):
+				tomboy_note = TomboyNote.find_first(data['id'])
+				tomboy_notes[tomboy_note.name] = tomboy_note
+
+				print "Server: Note added: " + tomboy_note.name
+
+		# Get the updated_at of the newest note
+		for name, tomboy_note in tomboy_notes.iteritems():
+			if newest_updated_at==None or tomboy_note.updated_at > newest_updated_at:
+				newest_updated_at = tomboy_note.updated_at
+
+		needs_first_sync = False
+
+	def __normal_sync(self):
+		global newest_updated_at
+
+		# Find the notes on the server that are newer or updated
+		for note_meta in TomboyNote.get('get_newer', newest_updated_at=newest_updated_at):
+			tomboy_note = TomboyNote(note_meta)
+			tomboy_notes[tomboy_note.name] = tomboy_note
+			note = tomboy.CreateNamedNote(tomboy_note.name)
+			tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
+			print "Server: Note added: " + tomboy_note.name
+
+			if newest_updated_at==None or tomboy_note.updated_at > newest_updated_at:
+				newest_updated_at = tomboy_note.updated_at
+
 	def run(self):
-		try:
-			# Add all the local tomboy notes
-			for note in tomboy.ListAllNotes():
-				add_tomboy_note(note, False)
+		print "Started syncer"
+		global needs_first_sync
 
-			# Add all the pidgin accounts
-			for account_id in purple.PurpleAccountsGetAllActive():
-				add_pidgin_account(account_id, False)
-
-			while not self._stopevent.isSet():
-				# Pull all notes from the server
-				server_notes = []
-				for n in TomboyNote._find_every():
-					server_notes.append(TomboyNote(n))
-
-				# Update notes from server
-				for note_name, client_note in tomboy_notes.iteritems():
-					for server_note in server_notes:
-						# Save new notes from client to server
-						if tomboy_note.created_at == None:
-							tomboy_note.save()
-							print "Server: Note added: " + tomboy_note.name
-						# Update notes that are on the server
-						elif server_note.id == client_note.id and \
-						server_note.updated_at != client_note.updated_at:
-							print "found changed note: " + client_note.name
-							# Update the note in our cache
-							client_note.name = server_note.name
-							client_note.body = server_note.body
-							client_note.tag = server_note.tag
-							client_note.created_at = server_note.created_at
-							client_note.updated_at = server_note.updated_at
-
-							# Update the note in tomboy
-							for note in tomboy.ListAllNotes():
-								if str(note) == note_id:
-									print "updated note: " + client_note.name
-									tomboy.SetNoteCompleteXml(note, base64.b64decode(client_note.body))
-
+		while not self._stopevent.isSet():
+			print "syncing ..."
+			try:
+				if needs_first_sync:
+					self.__first_sync()
+				else:
+					self.__normal_sync()
 				time.sleep(5)
 
-		except Exception:
-			traceback.print_exc(file=sys.stdout)
-			exit(1)
+			except Exception:
+				traceback.print_exc(file=sys.stdout)
+				exit(1)
 
 	def join(self, timeout=None):
 		threading.Thread.join(self, timeout)
@@ -260,9 +294,6 @@ bus.add_signal_receiver(onNoteDeleted,
 
 
 print "client running ..."
-pidgin_accounts = {}
-tomboy_notes = {}
-user = None
 
 # Add a new user to the server
 if len(User._find_every()) == 0:
@@ -279,10 +310,11 @@ else:
 	# Get user from server
 	user = User._find_every()[0]
 
-#puller = Puller()
-#puller.run()
+syncer = Syncer()
+syncer.start()
 
 # Wait here and run events
+print "FIXME: The dbus thread blocks all the python threads here."
 gobject.MainLoop().run()
 
 

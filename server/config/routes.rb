@@ -1,5 +1,5 @@
 ActionController::Routing::Routes.draw do |map|
-  map.resources :tomboy_notes, :collection => { :poop => :get }
+  map.resources :tomboy_notes, :collection => { :all_note_meta_data => :get, :get_newer => :get }
   map.resources :pidgin_accounts
   map.resources :users
 

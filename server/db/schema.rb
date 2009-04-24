@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20090417230352) do
+ActiveRecord::Schema.define(:version => 20090424020225) do
 
   create_table "pidgin_accounts", :force => true do |t|
     t.integer  "user_id",         :limit => 11,                 :null => false
@@ -31,6 +31,7 @@ ActiveRecord::Schema.define(:version => 20090417230352) do
     t.text     "tag"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.string   "guid"
   end
 
   create_table "users", :force => true do |t|

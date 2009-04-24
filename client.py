@@ -3,8 +3,8 @@
 import dbus, gobject, dbus.glib
 import base64, time
 import sys, threading, traceback
+from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
-
 
 # Create the models
 class User(ActiveResource):
@@ -15,6 +15,10 @@ class PidginAccount(ActiveResource):
 
 class TomboyNote(ActiveResource):
 	_site = "http://localhost:3000"
+
+# Make it so the dbus threads and python threads work at the same time
+gobject.threads_init()
+dbus.glib.init_threads()
 
 # Initiate a connection to the Session Bus
 bus = dbus.SessionBus()
@@ -28,7 +32,6 @@ purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
 obj = bus.get_object("org.gnome.Tomboy", 
 					"/org/gnome/Tomboy/RemoteControl")
 tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
-
 
 # Specify status ID values
 STATUS_OFFLINE = 1
@@ -105,16 +108,17 @@ def update_pidgin_account_status(account_id, old, new):
 
 def add_tomboy_note(note, save_now = True):
 	global newest_updated_at
-	note_name = str(tomboy.GetNoteTitle(note))
+	note_guid = get_tomboy_note_create_date(note)
 
 	# Skip adding the note if it already exists
-	if tomboy_notes.has_key(note_name):
+	if tomboy_notes.has_key(note_guid):
 		return
 
 	# Save the note
 	tomboy_note = TomboyNote()
+	tomboy_note.guid = note_guid
 	tomboy_note.user_id = user.id
-	tomboy_note.name = note_name
+	tomboy_note.name = str(tomboy.GetNoteTitle(note))
 	tomboy_note.body = base64.b64encode(str(tomboy.GetNoteCompleteXml(note)))
 	tomboy_note.created_at = None
 	tags = []
@@ -123,7 +127,7 @@ def add_tomboy_note(note, save_now = True):
 	tomboy_note.tag = str.join(', ', tags)
 	if save_now:
 		tomboy_note.save()
-	tomboy_notes[note_name] = tomboy_note
+	tomboy_notes[note_guid] = tomboy_note
 
 	# Save the updated_at as the new greatest
 	if tomboy_note.id:
@@ -133,15 +137,15 @@ def add_tomboy_note(note, save_now = True):
 		print "Server: Note added: " + tomboy_note.name
 
 def update_tomboy_note(note):
-	note_name = str(tomboy.GetNoteTitle(note))
+	note_guid = get_tomboy_note_create_date(note)
 
 	# Skip the note if it does not exist
-	if not tomboy_notes.has_key(note_name):
+	if not tomboy_notes.has_key(note_guid):
 		return
 
 	# Save the changes to the note
-	tomboy_note = tomboy_notes[note_name]
-	tomboy_note.name = note_name
+	tomboy_note = tomboy_notes[note_guid]
+	tomboy_note.name = str(tomboy.GetNoteTitle(note))
 	tomboy_note.body = base64.b64encode(str(tomboy.GetNoteCompleteXml(note)))
 	tags = []
 	for tag in tomboy.GetTagsForNote(note):
@@ -153,21 +157,24 @@ def update_tomboy_note(note):
 
 
 def remove_tomboy_note(note):
-	note_name = str(tomboy.GetNoteTitle(note))
+	note_guid = get_tomboy_note_create_date(note)
 
 	# Remove the note only if it exists
 	tomboy_note = None
-	if tomboy_notes.has_key(note_name):
-		tomboy_note = tomboy_notes[note_name]
+	if tomboy_notes.has_key(note_guid):
+		tomboy_note = tomboy_notes[note_guid]
 	else:
 		return
 
 	# Remove the note
 	tomboy_note.delete()
-	tomboy_notes.pop(note_name)
+	tomboy_notes.pop(note_guid)
 
 	print "Server: Note deleted: " + tomboy_note.name
 
+def get_tomboy_note_create_date(note):
+	body = str(tomboy.GetNoteCompleteXml(note))
+	return xml2dict.parse(body)['create_date']
 
 """
 Syncs notes to and from the server
@@ -191,8 +198,8 @@ class Syncer(threading.Thread):
 			datas = {}
 
 		# Save new client notes to the server
-		for name, tomboy_note in tomboy_notes.iteritems():
-			if not datas.has_key(tomboy_note.name):
+		for tomboy_note in tomboy_notes.values():
+			if not datas.has_key(tomboy_note.guid):
 				tomboy_note.save()
 				print "Server: Note added: " + tomboy_note.name
 
@@ -200,13 +207,13 @@ class Syncer(threading.Thread):
 		for name, data in datas.iteritems():
 			if not tomboy_notes.has_key(name):
 				tomboy_note = TomboyNote.find_first(data['id'])
-				tomboy_notes[tomboy_note.name] = tomboy_note
+				tomboy_notes[tomboy_note.guid] = tomboy_note
 
 				print "Server: Note added: " + tomboy_note.name
 
 		# Get the updated_at of the newest note
-		for name, tomboy_note in tomboy_notes.iteritems():
-			if newest_updated_at==None or tomboy_note.updated_at > newest_updated_at:
+		for tomboy_note in tomboy_notes.values():
+			if newest_updated_at == None or tomboy_note.updated_at > newest_updated_at:
 				newest_updated_at = tomboy_note.updated_at
 
 		needs_first_sync = False
@@ -217,25 +224,24 @@ class Syncer(threading.Thread):
 		# Find the notes on the server that are newer or updated
 		for note_meta in TomboyNote.get('get_newer', newest_updated_at=newest_updated_at):
 			tomboy_note = TomboyNote(note_meta)
-			tomboy_notes[tomboy_note.name] = tomboy_note
+			tomboy_notes[tomboy_note.guid] = tomboy_note
 			note = tomboy.CreateNamedNote(tomboy_note.name)
 			tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
 			print "Server: Note added: " + tomboy_note.name
 
-			if newest_updated_at==None or tomboy_note.updated_at > newest_updated_at:
+			if newest_updated_at == None or tomboy_note.updated_at > newest_updated_at:
 				newest_updated_at = tomboy_note.updated_at
 
 	def run(self):
-		print "Started syncer"
 		global needs_first_sync
 
 		while not self._stopevent.isSet():
-			print "syncing ..."
 			try:
 				if needs_first_sync:
 					self.__first_sync()
 				else:
 					self.__normal_sync()
+					#print str(tomboy_notes.keys())
 				time.sleep(5)
 
 			except Exception:
@@ -314,7 +320,6 @@ syncer = Syncer()
 syncer.start()
 
 # Wait here and run events
-print "FIXME: The dbus thread blocks all the python threads here."
 gobject.MainLoop().run()
 
 

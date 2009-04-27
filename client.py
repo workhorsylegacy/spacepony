@@ -212,8 +212,10 @@ class Syncer(threading.Thread):
 		# Get new notes from the server
 		for name, data in datas.iteritems():
 			if not tomboy_notes.has_key(name):
-				tomboy_note = TomboyNote.find_first(data['id'])
+				tomboy_note = TomboyNote.find(data['id'])
 				tomboy_notes[tomboy_note.guid] = tomboy_note
+				note = tomboy.CreateNamedNote(tomboy_note.name)
+				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
 
 				print "Server: Note added: " + tomboy_note.name
 

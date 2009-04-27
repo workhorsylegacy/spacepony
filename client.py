@@ -6,15 +6,17 @@ import sys, threading, traceback
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 
+SERVER_ADDRESS = "http://localhost:3000"
+
 # Create the models
 class User(ActiveResource):
-	_site = "http://localhost:3000"
+	_site = SERVER_ADDRESS
 
 class PidginAccount(ActiveResource):
-	_site = "http://localhost:3000"
+	_site = SERVER_ADDRESS
 
 class TomboyNote(ActiveResource):
-	_site = "http://localhost:3000"
+	_site = SERVER_ADDRESS
 
 # Make it so the dbus threads and python threads work at the same time
 gobject.threads_init()

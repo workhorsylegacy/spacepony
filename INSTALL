@@ -1,0 +1,49 @@
+
+# On the server you will need to install the database and web server:
+# get the code
+sudo apt-get instal bzr
+cd ~
+bzr branch lp:spacepony
+cd spacepony/server
+
+# setup the server
+sudo apt-get install mysql-server mysql-client ruby rake rubygems rails
+sudo gem install rails
+sudo gem install ezcrypto
+rake db:create:all
+rake db:migrate
+
+# Setup the firewall
+sudo ufw enable
+sudo ufw allow 3000
+sudo /etc/init.d/ufw restart
+
+# run the server
+# change the binding to the server's ip address
+ruby script/server --binding=192.168.1.101
+
+
+
+# On the client you will need to install dependencies and run the script:
+
+# get the code
+sudo apt-get instal bzr
+cd ~
+bzr branch lp:spacepony
+cd spacepony
+
+# install pyActiveResource
+cd pyactiveresource
+sudo python setup.py install
+cd ..
+
+# In the file client.py, update the server address with the ip address
+SERVER_ADDRESS = "http://192.168.1.101:3000"
+
+# Make sure pidgin and tomboy are running on the client
+# Make sure you have backed up your tomboy and pidgin settings
+
+# Run the clieny
+python client.py
+
+

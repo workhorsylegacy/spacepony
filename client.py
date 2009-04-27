@@ -199,6 +199,10 @@ class Syncer(threading.Thread):
 		if len(datas) == 0 or str(datas) == "" or datas == "\n":
 			datas = {}
 
+		for key, value in datas.iteritems():
+			datas.pop(key)
+			datas[key.replace('--', ' ')] = value
+
 		# Save new client notes to the server
 		for tomboy_note in tomboy_notes.values():
 			if not datas.has_key(tomboy_note.guid):

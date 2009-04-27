@@ -106,7 +106,7 @@ class TomboyNotesController < ApplicationController
   def all_note_meta_data
     @data = {}
     TomboyNote.find(:all).each do |n|
-        @data[n.name] = { :id => n.id, 
+        @data[n.name.gsub(' ', '--')] = { :id => n.id, 
                           :updated_at => n.updated_at}
     end
 

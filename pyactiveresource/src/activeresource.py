@@ -825,12 +825,7 @@ class ActiveResource(object):
             None
         """
         if '_initialized' in self.__dict__:
-            if name in self.__dict__ or name in self.__class__.__dict__:
-                # Update a normal attribute
-                object.__setattr__(self, name, value)
-            else:
-                # Add/update an attribute
-                self.attributes[name] = value
+            self.attributes[name] = value
         object.__setattr__(self, name, value)
 
     def __repr__(self):

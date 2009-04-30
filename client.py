@@ -110,7 +110,7 @@ def update_pidgin_account_status(account_id, old, new):
 
 def add_tomboy_note(note, save_now = True):
 	global newest_updated_at
-	note_guid = get_tomboy_note_create_date(note)
+	note_guid = str(note).replace("note://tomboy/", "")
 
 	# Skip adding the note if it already exists
 	if tomboy_notes.has_key(note_guid):
@@ -139,10 +139,11 @@ def add_tomboy_note(note, save_now = True):
 		print "Server: Note added: " + tomboy_note.name
 
 def update_tomboy_note(note):
-	note_guid = get_tomboy_note_create_date(note)
+	note_guid = str(note).replace("note://tomboy/", "")
 
 	# Skip the note if it does not exist
 	if not tomboy_notes.has_key(note_guid):
+		print "no note with guid: " + note_guid
 		return
 
 	# Save the changes to the note
@@ -159,7 +160,7 @@ def update_tomboy_note(note):
 
 
 def remove_tomboy_note(note):
-	note_guid = get_tomboy_note_create_date(note)
+	note_guid = str(note).replace("note://tomboy/", "")
 
 	# Remove the note only if it exists
 	tomboy_note = None
@@ -169,14 +170,10 @@ def remove_tomboy_note(note):
 		return
 
 	# Remove the note
-	tomboy_note.delete()
+	tomboy_note.destroy()
 	tomboy_notes.pop(note_guid)
 
 	print "Server: Note deleted: " + tomboy_note.name
-
-def get_tomboy_note_create_date(note):
-	body = str(tomboy.GetNoteCompleteXml(note))
-	return xml2dict.parse(body)['create_date']
 
 """
 Syncs notes to and from the server
@@ -199,9 +196,10 @@ class Syncer(threading.Thread):
 		if len(datas) == 0 or str(datas) == "" or datas == "\n":
 			datas = {}
 
+		# Remove prefix from guids. They are only needed to be valid xml
 		for key, value in datas.iteritems():
 			datas.pop(key)
-			datas[key.replace('--', ' ')] = value
+			datas[key.replace("note-", "")] = value
 
 		# Save new client notes to the server
 		for tomboy_note in tomboy_notes.values():
@@ -210,11 +208,11 @@ class Syncer(threading.Thread):
 				print "Server: Note added: " + tomboy_note.name
 
 		# Get new notes from the server
-		for name, data in datas.iteritems():
-			if not tomboy_notes.has_key(name):
+		for guid, data in datas.iteritems():
+			if not tomboy_notes.has_key(guid):
 				tomboy_note = TomboyNote.find(data['id'])
 				tomboy_notes[tomboy_note.guid] = tomboy_note
-				note = tomboy.CreateNamedNote(tomboy_note.name)
+				note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
 
 				print "Server: Note added: " + tomboy_note.name
@@ -233,7 +231,7 @@ class Syncer(threading.Thread):
 		for note_meta in TomboyNote.get('get_newer', newest_updated_at=newest_updated_at):
 			tomboy_note = TomboyNote(note_meta)
 			tomboy_notes[tomboy_note.guid] = tomboy_note
-			note = tomboy.CreateNamedNote(tomboy_note.name)
+			note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
 			tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
 			print "Server: Note added: " + tomboy_note.name
 
@@ -249,7 +247,6 @@ class Syncer(threading.Thread):
 					self.__first_sync()
 				else:
 					self.__normal_sync()
-					#print str(tomboy_notes.keys())
 				time.sleep(5)
 
 			except Exception:
@@ -322,7 +319,7 @@ if len(User._find_every()) == 0:
 # Copy the user from the server
 else:
 	# Get user from server
-	user = User._find_every()[0]
+	user = User.find_first()
 
 syncer = Syncer()
 syncer.start()

@@ -154,7 +154,14 @@ def update_tomboy_note(note):
 	for tag in tomboy.GetTagsForNote(note):
 		tags.append(str(tag))
 	tomboy_note.tag = str.join(', ', tags)
-	tomboy_note.save()
+
+	try:
+		tomboy_note.save()
+	except Exception, err:
+		if str(err) == "HTTP Error 404: Not Found":
+			tomboy.HideNote(note)
+			tomboy.DeleteNote(note)
+			tomboy_notes.pop(note_guid)
 
 	print "Server: Note updated: " + tomboy_note.name
 
@@ -170,7 +177,10 @@ def remove_tomboy_note(note):
 		return
 
 	# Remove the note
-	tomboy_note.destroy()
+	try:
+		tomboy_note.destroy()
+	except:
+		pass
 	tomboy_notes.pop(note_guid)
 
 	print "Server: Note deleted: " + tomboy_note.name
@@ -258,22 +268,34 @@ class Syncer(threading.Thread):
 
 
 def onAccountStatusChanged(account_id, old, new):
+	global needs_first_sync
+	if needs_first_sync == True: return
 	update_pidgin_account_status(account_id, old, new)
 
 def onAccountAdded(account_id):
+	global needs_first_sync
+	if needs_first_sync == True: return
 	add_pidgin_account(account_id)
 
 def onAccountRemoved(account_id):
+	global needs_first_sync
+	if needs_first_sync == True: return
 	remove_pidgin_account(account_id)
 
 def onNoteAdded(note):
+	global needs_first_sync
+	if needs_first_sync == True: return
 	add_tomboy_note(note)
 
 def onNoteSaved(note):
+	global needs_first_sync
+	if needs_first_sync == True: return
 	update_tomboy_note(note)
 
 # FIXME: Figure out what the second argument is. There is no documentation
 def onNoteDeleted(note, unknown_object):
+	global needs_first_sync
+	if needs_first_sync == True: return
 	remove_tomboy_note(note)
 
 # Bind the events

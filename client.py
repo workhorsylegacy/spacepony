@@ -6,7 +6,7 @@ import sys, threading, traceback
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 
-SERVER_ADDRESS = "http://localhost:3000"
+SERVER_ADDRESS = "http://192.168.1.101:3000"
 
 # Create the models
 class User(ActiveResource):
@@ -49,7 +49,7 @@ STATUS_TUNE = 8
 pidgin_accounts = {}
 tomboy_notes = {}
 user = None
-newest_updated_at = None
+newest_updated_timestamp = None
 needs_first_sync = True
 
 def add_pidgin_account(account_id, save_now = True):
@@ -109,7 +109,7 @@ def update_pidgin_account_status(account_id, old, new):
 				"' with the message '" + pidgin_account.message + "'."
 
 def add_tomboy_note(note, save_now = True):
-	global newest_updated_at
+	global newest_updated_timestamp
 	note_guid = str(note).replace("note://tomboy/", "")
 
 	# Skip adding the note if it already exists
@@ -122,7 +122,7 @@ def add_tomboy_note(note, save_now = True):
 	tomboy_note.user_id = user.id
 	tomboy_note.name = str(tomboy.GetNoteTitle(note))
 	tomboy_note.body = base64.b64encode(str(tomboy.GetNoteCompleteXml(note)))
-	tomboy_note.created_at = None
+	tomboy_note.created_timestamp = None
 	tags = []
 	for tag in tomboy.GetTagsForNote(note):
 		tags.append(str(tag))
@@ -131,9 +131,9 @@ def add_tomboy_note(note, save_now = True):
 		tomboy_note.save()
 	tomboy_notes[note_guid] = tomboy_note
 
-	# Save the updated_at as the new greatest
+	# Save the updated_timestamp as the new greatest
 	if tomboy_note.id:
-		newest_updated_at = tomboy_note.updated_at
+		newest_updated_timestamp = tomboy_note.updated_timestamp
 
 	if save_now:
 		print "Server: Note added: " + tomboy_note.name
@@ -194,7 +194,7 @@ class Syncer(threading.Thread):
 		threading.Thread.__init__(self, name=name)
 
 	def __first_sync(self):
-		global newest_updated_at
+		global newest_updated_timestamp
 		global needs_first_sync
 
 		# Add all the local tomboy notes
@@ -227,26 +227,27 @@ class Syncer(threading.Thread):
 
 				print "Server: Note added: " + tomboy_note.name
 
-		# Get the updated_at of the newest note
+		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():
-			if newest_updated_at == None or tomboy_note.updated_at > newest_updated_at:
-				newest_updated_at = tomboy_note.updated_at
+			if newest_updated_timestamp == None or tomboy_note.updated_timestamp > newest_updated_timestamp:
+				newest_updated_timestamp = tomboy_note.updated_timestamp
+				print tomboy_note.name + " " + str(newest_updated_timestamp)
 
 		needs_first_sync = False
 
 	def __normal_sync(self):
-		global newest_updated_at
+		global newest_updated_timestamp
 
 		# Find the notes on the server that are newer or updated
-		for note_meta in TomboyNote.get('get_newer', newest_updated_at=newest_updated_at):
+		for note_meta in TomboyNote.get('get_newer', newest_updated_timestamp=newest_updated_timestamp):
 			tomboy_note = TomboyNote(note_meta)
 			tomboy_notes[tomboy_note.guid] = tomboy_note
 			note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
 			tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
-			print "Server: Note added: " + tomboy_note.name
+			print "Syncer: Note added: " + tomboy_note.name
 
-			if newest_updated_at == None or tomboy_note.updated_at > newest_updated_at:
-				newest_updated_at = tomboy_note.updated_at
+			if newest_updated_timestamp == None or tomboy_note.updated_timestamp > newest_updated_timestamp:
+				newest_updated_timestamp = tomboy_note.updated_timestamp
 
 	def run(self):
 		global needs_first_sync

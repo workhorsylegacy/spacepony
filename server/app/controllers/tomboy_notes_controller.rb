@@ -52,6 +52,7 @@ class TomboyNotesController < ApplicationController
   # POST /tomboy_notes.json
   def create
     @tomboy_note = TomboyNote.new(params[:tomboy_note])
+    @tomboy_note.created_timestamp = Time.now.to_f
 
     respond_to do |format|
       if @tomboy_note.save
@@ -72,6 +73,7 @@ class TomboyNotesController < ApplicationController
   # PUT /tomboy_notes/1.json
   def update
     @tomboy_note = TomboyNote.find(params[:id])
+    @tomboy_note.updated_timestamp = Time.now.to_f
 
     respond_to do |format|
       if @tomboy_note.update_attributes(params[:tomboy_note])
@@ -118,9 +120,9 @@ class TomboyNotesController < ApplicationController
   end
 
   def get_newer
-    newest_updated_at = DateTime.parse(params['newest_updated_at'])
+    newest_updated_timestamp = DateTime.parse(params['newest_updated_timestamp'])
 
-    @tomboy_notes = TomboyNote.find(:all, :conditions => ['updated_at > ?', newest_updated_at])
+    @tomboy_notes = TomboyNote.find(:all, :conditions => ['updated_timestamp > ?', newest_updated_timestamp])
 
     respond_to do |format|
       format.html # get_newer.html.erb

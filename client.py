@@ -51,6 +51,7 @@ tomboy_notes = {}
 user = None
 newest_updated_timestamp = None
 needs_first_sync = True
+ignore_tomboy_event = {}
 
 def add_pidgin_account(account_id, save_now = True):
 	# Skip adding the account if it already exists
@@ -110,7 +111,14 @@ def update_pidgin_account_status(account_id, old, new):
 
 def add_tomboy_note(note, save_now = True):
 	global newest_updated_timestamp
+	global ignore_tomboy_event
+	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
+
+	# skip this event if it is in the list of ignores
+	if ignore_tomboy_event.has_key(note_guid) and ignore_tomboy_event[note_guid] > 0:
+		ignore_tomboy_event[note_guid] -= 1
+		return
 
 	# Skip adding the note if it already exists
 	if tomboy_notes.has_key(note_guid):
@@ -139,7 +147,15 @@ def add_tomboy_note(note, save_now = True):
 		print "Server: Note added: " + tomboy_note.name
 
 def update_tomboy_note(note):
+	global newest_updated_timestamp
+	global ignore_tomboy_event
+	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
+
+	# skip this event if it is in the list of ignores
+	if ignore_tomboy_event.has_key(note_guid) and ignore_tomboy_event[note_guid] > 0:
+		ignore_tomboy_event[note_guid] -= 1
+		return
 
 	# Skip the note if it does not exist
 	if not tomboy_notes.has_key(note_guid):
@@ -167,7 +183,15 @@ def update_tomboy_note(note):
 
 
 def remove_tomboy_note(note):
+	global newest_updated_timestamp
+	global ignore_tomboy_event
+	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
+
+	# skip this event if it is in the list of ignores
+	if ignore_tomboy_event.has_key(note_guid) and ignore_tomboy_event[note_guid] > 0:
+		ignore_tomboy_event[note_guid] -= 1
+		return
 
 	# Remove the note only if it exists
 	tomboy_note = None
@@ -196,6 +220,8 @@ class Syncer(threading.Thread):
 	def __first_sync(self):
 		global newest_updated_timestamp
 		global needs_first_sync
+		global ignore_tomboy_event
+		global tomboy_notes
 
 		# Add all the local tomboy notes
 		for note in tomboy.ListAllNotes():
@@ -215,17 +241,19 @@ class Syncer(threading.Thread):
 		for tomboy_note in tomboy_notes.values():
 			if not datas.has_key(tomboy_note.guid):
 				tomboy_note.save()
-				print "Server: Note added: " + tomboy_note.name
+				print "First Sync: Note added: " + tomboy_note.name
 
 		# Get new notes from the server
 		for guid, data in datas.iteritems():
 			if not tomboy_notes.has_key(guid):
 				tomboy_note = TomboyNote.find(data['id'])
 				tomboy_notes[tomboy_note.guid] = tomboy_note
+				if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
+				ignore_tomboy_event[tomboy_note.guid] += 1
 				note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
 
-				print "Server: Note added: " + tomboy_note.name
+				print "First Sync: Note added: " + tomboy_note.name
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():
@@ -236,14 +264,31 @@ class Syncer(threading.Thread):
 
 	def __normal_sync(self):
 		global newest_updated_timestamp
+		global ignore_tomboy_event
+		global tomboy_notes
 
 		# Find the notes on the server that are newer or updated
-		for note_meta in TomboyNote.get('get_newer', newest_updated_timestamp=newest_updated_timestamp):
-			tomboy_note = TomboyNote(note_meta)
-			tomboy_notes[tomboy_note.guid] = tomboy_note
-			note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
-			tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
-			print "Syncer: Note added: " + tomboy_note.name
+		for server_note in TomboyNote.get('get_newer', newest_updated_timestamp=newest_updated_timestamp):
+			# Convert the dict to a note
+			tomboy_note = TomboyNote(server_note)
+
+			# Update existing note
+			if tomboy_notes.has_key(tomboy_note.guid):
+				for note in tomboy.ListAllNotes():
+					if str(note) == "note://tomboy/" + tomboy_note.guid:
+						tomboy_notes[tomboy_note.guid] = tomboy_note
+						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
+						ignore_tomboy_event[tomboy_note.guid] += 1
+						tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
+						print "Syncer: Note updated: " + tomboy_note.name
+			# Create new note
+			else:
+				tomboy_notes[tomboy_note.guid] = tomboy_note
+				if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
+				ignore_tomboy_event[tomboy_note.guid] += 1
+				note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
+				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
+				print "Syncer: Note added: " + tomboy_note.name
 
 			if newest_updated_timestamp == None or tomboy_note.updated_timestamp > newest_updated_timestamp:
 				newest_updated_timestamp = tomboy_note.updated_timestamp

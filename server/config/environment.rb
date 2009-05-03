@@ -69,23 +69,4 @@ Rails::Initializer.run do |config|
   # config.active_record.observers = :cacher, :garbage_collector
 end
 
-class ActiveRecord::ConnectionAdapters::MysqlAdapter
-    def native_database_types #:nodoc:
-    {
-        :primary_key => "int(11) DEFAULT NULL auto_increment PRIMARY KEY",
-        :string      => { :name => "varchar", :limit => 255 },
-        :text        => { :name => "text" },
-        :integer     => { :name => "int"},
-        :float       => { :name => "float" },
-        :double      => { :name => "double" },
-        :decimal     => { :name => "decimal" },
-        :datetime    => { :name => "datetime" },
-        :timestamp   => { :name => "datetime" },
-        :time        => { :name => "time" },
-        :date        => { :name => "date" },
-        :binary      => { :name => "blob" },
-        :boolean     => { :name => "tinyint", :limit => 1 }
-    }
-    end
-end
 

@@ -231,7 +231,6 @@ class Syncer(threading.Thread):
 		for tomboy_note in tomboy_notes.values():
 			if newest_updated_timestamp == None or tomboy_note.updated_timestamp > newest_updated_timestamp:
 				newest_updated_timestamp = tomboy_note.updated_timestamp
-				print tomboy_note.name + " " + str(newest_updated_timestamp)
 
 		needs_first_sync = False
 

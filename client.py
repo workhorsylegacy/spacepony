@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import dbus, gobject, dbus.glib
-import base64, time
+import base64, time, decimal
 import sys, threading, traceback
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
@@ -235,25 +235,34 @@ class Syncer(threading.Thread):
 		# Remove prefix from guids. They are only needed to be valid xml
 		for key, value in datas.iteritems():
 			datas.pop(key)
-			datas[key.replace("note-", "")] = value
+			datas[key.replace("guid_", "").replace("_", "-")] = value
 
-		# Save new client notes to the server
-		for tomboy_note in tomboy_notes.values():
-			if not datas.has_key(tomboy_note.guid):
-				tomboy_note.save()
-				print "First Sync: Note added: " + tomboy_note.name
-
-		# Get new notes from the server
+		# Update the notes on the server and client
 		for guid, data in datas.iteritems():
-			if not tomboy_notes.has_key(guid):
-				tomboy_note = TomboyNote.find(data['id'])
-				tomboy_notes[tomboy_note.guid] = tomboy_note
-				if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
-				ignore_tomboy_event[tomboy_note.guid] += 1
-				note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
-				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
-
-				print "First Sync: Note added: " + tomboy_note.name
+			# Is on server and client ...
+			if tomboy_notes.has_key(guid):
+				tomboy_note = tomboy_notes[guid]
+				# but client's is newer
+				if tomboy_note.id and tomboy_note.updated_timestamp > decimal.Decimal(data["updated_timestamp"]):
+					tomboy_note.id = int(data['id'])
+					tomboy_note.save()
+					print "First Sync: Note updated(client newer): " + tomboy_note.name
+				# but server's is newer
+				else:
+					client_note = tomboy_note
+					tomboy_note = TomboyNote.find(data['id'])
+					tomboy_notes[tomboy_note.guid] = tomboy_note
+					if client_note.body != tomboy_note.body or client_note.name != tomboy_note.name or client_note.tag != tomboy_note.tag:
+						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
+						ignore_tomboy_event[tomboy_note.guid] += 1
+						tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
+					print "First Sync: Note updated(server newer): " + tomboy_note.name
+		
+		# Save the notes that are just on the client
+		for guid, tomboy_note in tomboy_notes.iteritems():
+			if not datas.has_key(guid):
+				tomboy_note.save()
+				print "First Sync: Note added(new from client): " + tomboy_note.name
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():

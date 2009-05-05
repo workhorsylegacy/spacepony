@@ -3,8 +3,16 @@
 import dbus, gobject, dbus.glib
 import base64, time, decimal
 import sys, threading, traceback
+import ctypes
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
+
+# Change the name of this process to spacepony
+try:
+	libc = ctypes.CDLL('libc.so.6')
+	libc.prctl(15, 'spacepony', 0, 0, 0)
+except:
+	pass
 
 SERVER_ADDRESS = "http://192.168.1.101:3000"
 

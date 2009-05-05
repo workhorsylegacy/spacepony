@@ -25,15 +25,29 @@ dbus.glib.init_threads()
 # Initiate a connection to the Session Bus
 bus = dbus.SessionBus()
 
+
+# Aks dbus to auto start the programs we will be talking to
+(success, status) = bus.start_service_by_name('org.gnome.Tomboy')
+#(success, status) = bus.start_service_by_name('org.gnome.Rhythmbox')
+#(success, status) = bus.start_service_by_name('im.pidgin.purple.PurpleService')
+
+obj, purple, tomboy = None, None, None
+
 # Get Pidgin's D-Bus interface
-obj = bus.get_object("im.pidgin.purple.PurpleService", 
-					"/im/pidgin/purple/PurpleObject")
-purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
+try:
+	obj = bus.get_object("im.pidgin.purple.PurpleService", 
+						"/im/pidgin/purple/PurpleObject")
+	purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
+except:
+	raise Exception("Please start pidgin first.")
 
 # Get Tomboy's D-Bus interface
-obj = bus.get_object("org.gnome.Tomboy", 
-					"/org/gnome/Tomboy/RemoteControl")
-tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+try:
+	obj = bus.get_object("org.gnome.Tomboy", 
+						"/org/gnome/Tomboy/RemoteControl")
+	tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+except:
+	raise Exception("Please start tomboy first.")
 
 # Specify status ID values
 STATUS_OFFLINE = 1

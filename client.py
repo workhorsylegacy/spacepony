@@ -421,7 +421,7 @@ except connection.ResourceInvalid, err:
 	exit()
 
 # Get the user from the server
-user = User.get('get_logged_in_user')
+user = User(User.get('get_logged_in_user'))
 
 syncer = Syncer()
 syncer.start()

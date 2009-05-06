@@ -1,6 +1,7 @@
 class UsersController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
+  before_filter :authenticate, :except => [ :ensure_user_exists ]
 
   # GET /users
   # GET /users.json
@@ -91,6 +92,57 @@ class UsersController < ApplicationController
       format.html { redirect_to(users_url) }
       format.json  { head :ok }
       format.xml  { head :ok }
+    end
+  end
+
+  def get_logged_in_user
+    @user = User.find(session[:user_id])
+
+    respond_to do |format|
+      format.html # get_logged_in_user.html.erb
+      format.json  { render :json => @user }
+      format.xml  { render :xml => @user }
+    end
+  end
+
+  def ensure_user_exists
+    # Get the params
+    name = params['name']
+    password = params['password']
+    email = params['email']
+
+    # Determine if the user exists and can login
+    user_exists = user_exists?(name)
+    valid_login = valid_login?(name, password)
+
+    respond_to do |format|
+      if user_exists && valid_login
+        flash[:notice] = 'User can login.'
+        format.html { head :ok }
+        format.json  { head :ok }
+        format.xml  { head :ok }
+      elsif user_exists && valid_login == false
+        flash[:notice] = 'Invalid login.'
+        format.html { head :unauthorized }
+        format.json  { head :unauthorized }
+        format.xml  { head :unauthorized }
+      elsif user_exists == false
+        user = User.new
+        user.name = name
+        user.email = email
+        user.password = password
+        user.password_confirmation = password
+        if user.save
+          flash[:notice] = 'User was created, and can login.'
+          format.html { head :ok }
+          format.json  { head :ok }
+          format.xml  { head :ok }
+        else
+          format.html { head :unprocessable_entity }
+          format.json  { render :json => user.errors, :status => :unprocessable_entity }
+          format.xml  { render :xml => user.errors, :status => :unprocessable_entity }
+        end
+      end
     end
   end
 end

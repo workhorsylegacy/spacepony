@@ -1,6 +1,7 @@
 class PidginAccountsController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
+  before_filter :authenticate
 
   # GET /pidgin_accounts
   # GET /pidgin_accounts.json

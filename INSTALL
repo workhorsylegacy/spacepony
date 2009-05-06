@@ -37,8 +37,8 @@ cd pyactiveresource
 sudo python setup.py install
 cd ..
 
-# In the file client.py, update the server address with the ip address
-SERVER_ADDRESS = "http://192.168.1.101:3000"
+# In the file client.py, update the server socket with the ip address and port
+SERVER_SOCKET = "192.168.1.101:3000"
 
 # Make sure pidgin and tomboy are running on the client
 # Make sure you have backed up your tomboy and pidgin settings

@@ -1,7 +1,7 @@
 ActionController::Routing::Routes.draw do |map|
   map.resources :tomboy_notes, :collection => { :all_note_meta_data => :get, :get_newer => :get }
   map.resources :pidgin_accounts
-  map.resources :users
+  map.resources :users, :collection => { :ensure_user_exists =>:get, :get_logged_in_user => :get }
 
   # The priority is based upon order of creation: first created -> highest priority.
 

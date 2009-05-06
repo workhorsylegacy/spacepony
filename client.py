@@ -6,6 +6,8 @@ import sys, threading, traceback
 import ctypes
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
+from pyactiveresource import util
+from pyactiveresource import connection
 
 # Change the name of this process to spacepony
 try:
@@ -14,7 +16,11 @@ try:
 except:
 	pass
 
-SERVER_ADDRESS = "http://192.168.1.101:3000"
+USERNAME = "mattjones"
+PASSWORD = "password"
+EMAIL = "mattjones@workhorsy.org"
+SERVER_SOCKET = "192.168.1.101:3000"
+SERVER_ADDRESS = "http://" + USERNAME + ":" + PASSWORD + "@" + SERVER_SOCKET
 
 # Create the models
 class User(ActiveResource):
@@ -400,24 +406,22 @@ bus.add_signal_receiver(onNoteDeleted,
 						signal_name = "NoteDeleted")
 
 
-
-
 print "client running ..."
 
-# Add a new user to the server
-if len(User._find_every()) == 0:
-	# Create a user and save it
-	user = User()
-	user.name = 'mattjones'
-	user.email = 'mattjones@workhorsy.org'
-	user.password = 'password'
-	user.password_confirmation = 'password'
-	user.save()
+# Create the user or make sure it exists
+try:
+	User.get('ensure_user_exists', name=USERNAME, password=PASSWORD, email=EMAIL)
+except connection.UnauthorizedAccess, err:
+	print 'Invalid login.'
+	exit()
+except connection.ResourceInvalid, err:
+	print "Validation Failed:"
+	for error in util.xml_to_dict(err.response.body)['error']:
+		print "    " + error
+	exit()
 
-# Copy the user from the server
-else:
-	# Get user from server
-	user = User.find_first()
+# Get the user from the server
+user = User.get('get_logged_in_user')
 
 syncer = Syncer()
 syncer.start()

@@ -4,6 +4,7 @@ require 'base64'
 class TomboyNotesController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
+  before_filter :authenticate
 
   # GET /tomboy_notes
   # GET /tomboy_notes.json

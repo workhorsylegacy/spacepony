@@ -81,6 +81,7 @@ class TomboyNotesController < ApplicationController
   # PUT /tomboy_notes/1.json
   def update
     @tomboy_note = TomboyNote.find(params[:id])
+    @user = User.find(params[:tomboy_note][:user_id])
 
     # Set the new updated timestamp
     params[:tomboy_note][:updated_timestamp] = Time.now.to_f

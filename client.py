@@ -256,7 +256,7 @@ class Syncer(threading.Thread):
 			add_tomboy_note(note, False)
 
 		# Get list of all note titles and change dates from server
-		datas = TomboyNote.get('all_note_meta_data')
+		datas = TomboyNote.get('all_note_meta_data', user_id=user.id)
 		if len(datas) == 0 or str(datas) == "" or datas == "\n":
 			datas = {}
 
@@ -305,7 +305,7 @@ class Syncer(threading.Thread):
 		global tomboy_notes
 
 		# Find the notes on the server that are newer or updated
-		for server_note in TomboyNote.get('get_newer', newest_updated_timestamp=newest_updated_timestamp):
+		for server_note in TomboyNote.get('get_newer', newest_updated_timestamp=newest_updated_timestamp, user_id=user.id):
 			# Convert the dict to a note
 			tomboy_note = TomboyNote(server_note)
 

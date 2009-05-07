@@ -86,7 +86,7 @@ class ApplicationController < ActionController::Base
 
   def authorize_originating_user_only
     unless is_originating_user_or_admin
-      flash_notice "Only that user can access this page."
+      flash[:notice] = "Only that user can access this page."
       respond_to do |format|
         format.html { head :unauthorized }
         format.json  { head :unauthorized }

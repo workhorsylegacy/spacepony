@@ -12,16 +12,16 @@
 ActiveRecord::Schema.define(:version => 20090501183037) do
 
   create_table "pidgin_accounts", :force => true do |t|
-    t.integer  "user_id",         :limit => 11,                 :null => false
-    t.string   "name",                          :default => "", :null => false
-    t.string   "hashed_password",               :default => "", :null => false
-    t.string   "salt",                                          :null => false
-    t.string   "status",                        :default => "", :null => false
-    t.string   "message"
-    t.string   "protocol",                      :default => "", :null => false
-    t.string   "icon"
-    t.datetime "created_at"
-    t.datetime "updated_at"
+    t.integer "user_id",           :limit => 11,                                                 :null => false
+    t.string  "name",                                                            :default => "", :null => false
+    t.string  "hashed_password",                                                 :default => "", :null => false
+    t.string  "salt",                                                                            :null => false
+    t.string  "status",                                                          :default => "", :null => false
+    t.string  "message"
+    t.string  "protocol",                                                        :default => "", :null => false
+    t.string  "icon"
+    t.decimal "created_timestamp",               :precision => 20, :scale => 10
+    t.decimal "updated_timestamp",               :precision => 20, :scale => 10
   end
 
   create_table "tomboy_notes", :force => true do |t|

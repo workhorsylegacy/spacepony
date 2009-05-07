@@ -77,16 +77,27 @@ STATUS_TUNE = 8
 pidgin_accounts = {}
 tomboy_notes = {}
 user = None
-newest_updated_timestamp = None
+newest_tomboy_timestamp = None
+newest_pidgin_timestamp = None
 needs_first_sync = True
 ignore_tomboy_event = {}
+ignore_pidgin_event = {}
 
 def add_pidgin_account(account_id, save_now = True):
+	global newest_pidgin_timestamp
+	global ignore_pidgin_event
+	global pidgin_accounts
+	account_guid = purple.PurpleAccountGetUsername(account_id) + ':' + purple.PurpleAccountGetProtocolId(account_id)
+
+	# skip this event if it is in the list of ignores
+	if ignore_pidgin_event.has_key(account_guid) and ignore_pidgin_event[account_guid] > 0:
+		ignore_pidgin_event[account_guid] -= 1
+		return
+
 	# Skip adding the account if it already exists
 	for pidgin_account in pidgin_accounts.values():
-		if str(purple.PurpleAccountGetUsername(account_id)) == pidgin_account.name and \
-			str(purple.PurpleAccountGetProtocolId(account_id)) == pidgin_account.protocol:
-				return
+		if pidgin_account.name + ':' + pidgin_account.protocol  == account_guid:
+			return
 
 	# Retrieve the current status
 	status = purple.PurpleSavedstatusGetCurrent()
@@ -101,30 +112,29 @@ def add_pidgin_account(account_id, save_now = True):
 	pidgin_account.icon = str(purple.PurpleAccountGetBuddyIconPath(account_id))
 	if save_now:
 		pidgin_account.save()
-	pidgin_accounts[account_id] = pidgin_account
+	pidgin_accounts[account_guid] = pidgin_account
+
+	# Save the updated_timestamp as the new greatest
+	if pidgin_account.id:
+		newest_pidgin_timestamp = pidgin_account.updated_timestamp
 
 	if save_now:
 		print "Server: Added Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
-def remove_pidgin_account(account_id):
-	# Remove the account only if it exists
-	pidgin_account = None
-	if pidgin_accounts.has_key(account_id):
-		pidgin_account = pidgin_accounts[account_id]
-	else:
+def update_pidgin_account_status(account_id, old, new):
+	global newest_pidgin_timestamp
+	global ignore_pidgin_event
+	global pidgin_accounts
+	account_guid = purple.PurpleAccountGetUsername(account_id) + ':' + purple.PurpleAccountGetProtocolId(account_id)
+
+	# skip this event if it is in the list of ignores
+	if ignore_pidgin_event.has_key(account_guid) and ignore_pidgin_event[account_guid] > 0:
+		ignore_pidgin_event[account_guid] -= 1
 		return
 
-	# Remove the account
-	pidgin_account.delete()
-	pidgin_accounts.pop(account_id)
-
-	print "Server: Removed Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
-
-def update_pidgin_account_status(account_id, old, new):
 	# Look through all the pidgin accounts to find the one that changed
 	for pidgin_account in pidgin_accounts.values():
-		if str(purple.PurpleAccountGetUsername(account_id)) == pidgin_account.name and \
-			str(purple.PurpleAccountGetProtocolId(account_id)) == pidgin_account.protocol:
+		if pidgin_account.name + ':' + pidgin_account.protocol  == account_guid:
 
 			# Get the new status
 			status = purple.PurpleSavedstatusGetCurrent()
@@ -134,11 +144,38 @@ def update_pidgin_account_status(account_id, old, new):
 			pidgin_account.message = str(purple.PurpleSavedstatusGetMessage(status) or "")
 			pidgin_account.save()
 
+			# Save the updated_timestamp as the new greatest
+			newest_pidgin_timestamp = pidgin_account.updated_timestamp
+
 			print "Server: Changed Pidgin status for account " + pidgin_account.name + " to '" + pidgin_account.status + \
 				"' with the message '" + pidgin_account.message + "'."
 
+def remove_pidgin_account(account_id):
+	global ignore_pidgin_event
+	global pidgin_accounts
+	account_guid = purple.PurpleAccountGetUsername(account_id) + ':' + purple.PurpleAccountGetProtocolId(account_id)
+
+	# skip this event if it is in the list of ignores
+	if ignore_pidgin_event.has_key(account_guid) and ignore_pidgin_event[account_guid] > 0:
+		ignore_pidgin_event[account_guid] -= 1
+		return
+
+	# Just return if it does not exist
+	if not pidgin_accounts.has_key(account_guid):
+		return
+
+	# Remove the account
+	pidgin_account = pidgin_accounts[account_guid]
+	try:
+		pidgin_accounts.destroy()
+	except:
+		pass
+	pidgin_accounts.pop(account_guid)
+
+	print "Server: Removed Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
+
 def add_tomboy_note(note, save_now = True):
-	global newest_updated_timestamp
+	global newest_tomboy_timestamp
 	global ignore_tomboy_event
 	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
@@ -169,13 +206,13 @@ def add_tomboy_note(note, save_now = True):
 
 	# Save the updated_timestamp as the new greatest
 	if tomboy_note.id:
-		newest_updated_timestamp = tomboy_note.updated_timestamp
+		newest_tomboy_timestamp = tomboy_note.updated_timestamp
 
 	if save_now:
 		print "Server: Note added: " + tomboy_note.name
 
 def update_tomboy_note(note):
-	global newest_updated_timestamp
+	global newest_tomboy_timestamp
 	global ignore_tomboy_event
 	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
@@ -207,11 +244,14 @@ def update_tomboy_note(note):
 			tomboy.DeleteNote(note)
 			tomboy_notes.pop(note_guid)
 
+	# Save the updated_timestamp as the new greatest
+	newest_tomboy_timestamp = tomboy_note.updated_timestamp
+
 	print "Server: Note updated: " + tomboy_note.name
 
 
 def remove_tomboy_note(note):
-	global newest_updated_timestamp
+	global newest_tomboy_timestamp
 	global ignore_tomboy_event
 	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
@@ -221,14 +261,12 @@ def remove_tomboy_note(note):
 		ignore_tomboy_event[note_guid] -= 1
 		return
 
-	# Remove the note only if it exists
-	tomboy_note = None
-	if tomboy_notes.has_key(note_guid):
-		tomboy_note = tomboy_notes[note_guid]
-	else:
+	# Just return if it does not exist
+	if not tomboy_notes.has_key(note_guid):
 		return
 
 	# Remove the note
+	tomboy_note = tomboy_notes[note_guid]
 	try:
 		tomboy_note.destroy()
 	except:
@@ -246,16 +284,31 @@ class Syncer(threading.Thread):
 		threading.Thread.__init__(self, name=name)
 
 	def __first_sync(self):
-		global newest_updated_timestamp
+		global newest_tomboy_timestamp
+		global newest_pidgin_timestamp
 		global needs_first_sync
 		global ignore_tomboy_event
+		global ignore_pidgin_event
 		global tomboy_notes
+		global pidgin_accounts
+
+		# FIXME: Make this sync the pidgin stuff just like the tomboy stuff
+		"""
+		# Add all the local pidgin accounts
+		for account_id in purple.PurpleAccountsGetAll():
+			add_pidgin_account(account_id, False)
+
+		# Get list of all account guids and change dates from server
+		datas = PidginAccount.get('all_account_meta_data', user_id=user.id)
+		if len(datas) == 0 or str(datas) == "" or datas == "\n":
+			datas = {}
+		"""
 
 		# Add all the local tomboy notes
 		for note in tomboy.ListAllNotes():
 			add_tomboy_note(note, False)
 
-		# Get list of all note titles and change dates from server
+		# Get list of all note guids and change dates from server
 		datas = TomboyNote.get('all_note_meta_data', user_id=user.id)
 		if len(datas) == 0 or str(datas) == "" or datas == "\n":
 			datas = {}
@@ -294,18 +347,18 @@ class Syncer(threading.Thread):
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():
-			if newest_updated_timestamp == None or tomboy_note.updated_timestamp > newest_updated_timestamp:
-				newest_updated_timestamp = tomboy_note.updated_timestamp
+			if newest_tomboy_timestamp == None or tomboy_note.updated_timestamp > newest_tomboy_timestamp:
+				newest_tomboy_timestamp = tomboy_note.updated_timestamp
 
 		needs_first_sync = False
 
 	def __normal_sync(self):
-		global newest_updated_timestamp
+		global newest_tomboy_timestamp
 		global ignore_tomboy_event
 		global tomboy_notes
 
 		# Find the notes on the server that are newer or updated
-		for server_note in TomboyNote.get('get_newer', newest_updated_timestamp=newest_updated_timestamp, user_id=user.id):
+		for server_note in TomboyNote.get('get_newer', newest_timestamp=newest_tomboy_timestamp, user_id=user.id):
 			# Convert the dict to a note
 			tomboy_note = TomboyNote(server_note)
 
@@ -327,8 +380,8 @@ class Syncer(threading.Thread):
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
 				print "Syncer: Note added: " + tomboy_note.name
 
-			if newest_updated_timestamp == None or tomboy_note.updated_timestamp > newest_updated_timestamp:
-				newest_updated_timestamp = tomboy_note.updated_timestamp
+			if newest_tomboy_timestamp == None or tomboy_note.updated_timestamp > newest_tomboy_timestamp:
+				newest_tomboy_timestamp = tomboy_note.updated_timestamp
 
 	def run(self):
 		global needs_first_sync

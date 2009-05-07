@@ -1,6 +1,6 @@
 ActionController::Routing::Routes.draw do |map|
   map.resources :tomboy_notes, :collection => { :all_note_meta_data => :get, :get_newer => :get }
-  map.resources :pidgin_accounts
+  map.resources :pidgin_accounts, :collection => { :all_account_meta_data => :get, :get_newer => :get }
   map.resources :users, :collection => { :ensure_user_exists =>:get, :get_logged_in_user => :get, :login => :get }
   map.resources :home
 

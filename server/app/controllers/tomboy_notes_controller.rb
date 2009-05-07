@@ -131,11 +131,11 @@ class TomboyNotesController < ApplicationController
   end
 
   def get_newer
-    newest_updated_timestamp = params['newest_updated_timestamp'].to_f
+    newest_timestamp = params['newest_timestamp'].to_f
 
     @tomboy_notes = TomboyNote.find(:all, :conditions => ['user_id=? and updated_timestamp>?', 
                                                           params[:user_id], 
-                                                          newest_updated_timestamp])
+                                                          newest_timestamp])
 
     respond_to do |format|
       format.html # get_newer.html.erb

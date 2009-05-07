@@ -1,19 +1,7 @@
 class UsersController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
-  before_filter :authenticate, :except => [ :ensure_user_exists ]
-
-  # GET /users
-  # GET /users.json
-  def index
-    @users = User.find(:all)
-
-    respond_to do |format|
-      format.html # index.html.erb
-      format.json  { render :json => @users }
-      format.xml  { render :xml => @users }
-    end
-  end
+  before_filter :authenticate, :except => [ 'ensure_user_exists', 'new', 'create', 'login' ]
 
   # GET /users/1
   # GET /users/1.json
@@ -71,7 +59,7 @@ class UsersController < ApplicationController
     respond_to do |format|
       if @user.update_attributes(params[:user])
         flash[:notice] = 'User was successfully updated.'
-        format.html { redirect_to(@user) }
+        format.html { redirect_to('login') }
         format.json  { head :ok }
         format.xml  { head :ok }
       else
@@ -92,6 +80,16 @@ class UsersController < ApplicationController
       format.html { redirect_to(users_url) }
       format.json  { head :ok }
       format.xml  { head :ok }
+    end
+  end
+
+  def login
+    return unless request.post?
+
+    if logg_in(params['user_name'], params['password'])
+      redirect_to(:controller => :users, :action => 'show', :id => session[:user_id])
+    else
+      flash[:notice] = 'Invalid user name or password.'
     end
   end
 

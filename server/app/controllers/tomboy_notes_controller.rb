@@ -5,11 +5,13 @@ class TomboyNotesController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
   before_filter :authenticate
+  before_filter :authorize_originating_user_only, :only => ['index', 'show', 'create', 'update', 'destroy', 'all_note_meta_data', 'get_newer']
 
   # GET /tomboy_notes
   # GET /tomboy_notes.json
   def index
-    @tomboy_notes = TomboyNote.find(:all)
+    @user = User.find(params[:user_id])
+    @tomboy_notes = TomboyNote.find(:all, :conditions => ['user_id=?', @user.id])
 
     respond_to do |format|
       format.html # index.html.erb
@@ -22,6 +24,7 @@ class TomboyNotesController < ApplicationController
   # GET /tomboy_notes/1.json
   def show
     @tomboy_note = TomboyNote.find(params[:id])
+    @user = User.find(params[:user_id])
 
     respond_to do |format|
       format.html # show.html.erb
@@ -34,7 +37,7 @@ class TomboyNotesController < ApplicationController
   # GET /tomboy_notes/new.json
   def new
     @tomboy_note = TomboyNote.new
-    @users = User.find(:all)
+    @user = User.find(params[:user_id])
 
     respond_to do |format|
       format.html # new.html.erb
@@ -46,13 +49,14 @@ class TomboyNotesController < ApplicationController
   # GET /tomboy_notes/1/edit
   def edit
     @tomboy_note = TomboyNote.find(params[:id])
-    @users = User.find(:all)
+    @user = User.find(params[:user_id])
   end
 
   # POST /tomboy_notes
   # POST /tomboy_notes.json
   def create
     @tomboy_note = TomboyNote.new(params[:tomboy_note])
+    @user = User.find(params[:tomboy_note][:user_id])
 
     # Set the initial timestamp
     timestamp = Time.now.to_f
@@ -62,11 +66,10 @@ class TomboyNotesController < ApplicationController
     respond_to do |format|
       if @tomboy_note.save
         flash[:notice] = 'Tomboy Note was successfully created.'
-        format.html { redirect_to(@tomboy_note) }
+        format.html { redirect_to(:action => :show, :id => @tomboy_note.id, :user_id => @user.id) }
         format.json  { render :json => @tomboy_note, :status => :created, :location => @tomboy_note }
         format.xml  { render :xml => @tomboy_note, :status => :created, :location => @tomboy_note }
       else
-        @users = User.find(:all)
         format.html { render :action => "new" }
         format.json  { render :json => @tomboy_note.errors, :status => :unprocessable_entity }
         format.xml  { render :xml => @tomboy_note.errors, :status => :unprocessable_entity }
@@ -85,7 +88,7 @@ class TomboyNotesController < ApplicationController
     respond_to do |format|
       if @tomboy_note.update_attributes(params[:tomboy_note])
         flash[:notice] = 'Tomboy Note was successfully updated.'
-        format.html { redirect_to(@tomboy_note) }
+        format.html { redirect_to(:action => :update, :id => @tomboy_note.id, :user_id => @user.id) }
         format.json  { head :ok }
         format.xml  { head :ok }
       else
@@ -104,7 +107,7 @@ class TomboyNotesController < ApplicationController
     @tomboy_note.destroy
 
     respond_to do |format|
-      format.html { redirect_to(tomboy_notes_url) }
+      format.html { redirect_to(:action => :index, :user_id => @tomboy_note.user_id) }
       format.json  { head :ok }
       format.xml  { head :ok }
     end
@@ -114,7 +117,7 @@ class TomboyNotesController < ApplicationController
   # GET /tomboy_notes/all_note_meta_data.json
   def all_note_meta_data
     @data = {}
-    TomboyNote.find(:all).each do |n|
+    TomboyNote.find(:all, :conditions => ['user_id=?', params[:user_id]]).each do |n|
         @data['guid-' + n.guid] = { :id => n.id, 
                           :updated_timestamp => n.updated_timestamp}
     end
@@ -129,12 +132,26 @@ class TomboyNotesController < ApplicationController
   def get_newer
     newest_updated_timestamp = params['newest_updated_timestamp'].to_f
 
-    @tomboy_notes = TomboyNote.find(:all, :conditions => ['updated_timestamp > ?', newest_updated_timestamp])
+    @tomboy_notes = TomboyNote.find(:all, :conditions => ['user_id=? and updated_timestamp>?', 
+                                                          params[:user_id], 
+                                                          newest_updated_timestamp])
 
     respond_to do |format|
       format.html # get_newer.html.erb
       format.json  { render :json => @tomboy_notes }
       format.xml  { render :xml => @tomboy_notes }
     end
+  end
+
+  private
+
+  def get_originating_user_id
+    id = if params.has_key? :tomboy_note
+      params[:tomboy_note][:user_id]
+    else
+      params[:user_id]
+    end
+
+    User.find(id).id
   end
 end

@@ -1,8 +1,7 @@
-<h1>Listing tomboy notes</h1>
+<h1>Listing tomboy notes for <%=h @user.name %></h1>
 
 <table>
   <tr>
-    <th>User</th>
     <th>Name</th>
     <th>Body</th>
     <th>Tag</th>
@@ -10,17 +9,16 @@
 
 <% for tomboy_note in @tomboy_notes %>
   <tr>
-    <td><%=h tomboy_note.user_id %></td>
     <td><%=h tomboy_note.name %></td>
     <td><%=h Base64.decode64(tomboy_note.body)[0..19] + ' ...' %></td>
     <td><%=h tomboy_note.tag %></td>
-    <td><%= link_to 'Show', tomboy_note %></td>
-    <td><%= link_to 'Edit', edit_tomboy_note_path(tomboy_note) %></td>
-    <td><%= link_to 'Destroy', tomboy_note, :confirm => 'Are you sure?', :method => :delete %></td>
+    <td><%= link_to 'Show', :action => :show, :id => tomboy_note.id, :user_id => @user.id %></td>
+    <td><%= link_to 'Edit', :action => :edit, :id => tomboy_note.id, :user_id => @user.id %></td>
+    <td><%= link_to 'Destroy', {:action => :destroy, :id => tomboy_note.id, :user_id => @user.id}, :confirm => 'Are you sure?', :method => :delete %></td>
   </tr>
 <% end %>
 </table>
 
 <br />
 
-<%= link_to 'New tomboy note', new_tomboy_note_path %>
+<%= link_to 'New tomboy note', :action => :new, :user_id => @user.id %>

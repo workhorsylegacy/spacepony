@@ -2,18 +2,14 @@
 
 <% form_for(@tomboy_note) do |f| %>
   <%= f.error_messages %>
-
-  <p>
-    <%= f.label :user_id %><br />
-    <%= f.select :user_id, @users.collect{|u| [u.name, u.id]}, {:selected => @tomboy_note.user_id || 'Select one'} %>
-  </p>
+  <%= f.hidden_field :user_id, :value => @user.id %>
   <p>
     <%= f.label :name %><br />
     <%= f.text_field :name %>
   </p>
   <p>
     <%= f.label :body %><br />
-    <%= f.text_field :body %>
+    <%= f.text_area :body %>
   </p>
   <p>
     <%= f.label :guid %><br />
@@ -28,4 +24,4 @@
   </p>
 <% end %>
 
-<%= link_to 'Back', tomboy_notes_path %>
+<%= link_to 'Back', :action => :index, :user_id => @user.id %>

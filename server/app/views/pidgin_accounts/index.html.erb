@@ -1,8 +1,7 @@
-<h1>Listing pidgin accounts</h1>
+<h1>Listing pidgin accounts for <%=h @user.name %></h1>
 
 <table>
   <tr>
-    <th>User</th>
     <th>Name</th>
     <th>Status</th>
     <th>Message</th>
@@ -12,19 +11,18 @@
 
 <% for pidgin_account in @pidgin_accounts %>
   <tr>
-    <td><%=h pidgin_account.user_id %></td>
     <td><%=h pidgin_account.name %></td>
     <td><%=h pidgin_account.status %></td>
     <td><%=h pidgin_account.message %></td>
     <td><%=h pidgin_account.protocol %></td>
     <td><%=h pidgin_account.icon %></td>
-    <td><%= link_to 'Show', pidgin_account %></td>
-    <td><%= link_to 'Edit', edit_pidgin_account_path(pidgin_account) %></td>
-    <td><%= link_to 'Destroy', pidgin_account, :confirm => 'Are you sure?', :method => :delete %></td>
+    <td><%= link_to 'Show', :action => :show, :id => pidgin_account.id, :user_id => @user.id %></td>
+    <td><%= link_to 'Edit', :action => :edit, :id => pidgin_account.id, :user_id => @user.id %></td>
+    <td><%= link_to 'Destroy', {:action => :destroy, :id => pidgin_account.id, :user_id => @user.id}, :confirm => 'Are you sure?', :method => :delete %></td>
   </tr>
 <% end %>
 </table>
 
 <br />
 
-<%= link_to 'New pidgin account', new_pidgin_account_path %>
+<%= link_to 'New pidgin account', :action => :new, :user_id => @user.id %>

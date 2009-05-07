@@ -29,5 +29,5 @@
 </p>
 
 
-<%= link_to 'Edit', edit_pidgin_account_path(@pidgin_account) %> |
-<%= link_to 'Back', pidgin_accounts_path %>
+<%= link_to 'Edit', :action => :edit, :id => @pidgin_account, :user_id => @user.id %> |
+<%= link_to 'Back', :action => :index, :user_id => @user.id %>

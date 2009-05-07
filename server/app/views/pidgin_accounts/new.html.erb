@@ -2,11 +2,7 @@
 
 <% form_for(@pidgin_account) do |f| %>
   <%= f.error_messages %>
-
-  <p>
-    <%= f.label :user_id %><br />
-    <%= f.select :user_id, @users.collect{|u| [u.name, u.id]}, {:selected => @pidgin_account.user_id || 'Select one'} %>
-  </p>
+  <%= f.hidden_field :user_id, :value => @user.id %>
   <p>
     <%= f.label :name %><br />
     <%= f.text_field :name %>
@@ -36,4 +32,4 @@
   </p>
 <% end %>
 
-<%= link_to 'Back', pidgin_accounts_path %>
+<%= link_to 'Back', :action => :index, :user_id => @user.id %>

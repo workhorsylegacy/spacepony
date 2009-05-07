@@ -35,11 +35,63 @@ class ApplicationController < ActionController::Base
   end
 
   def authenticate
-    authenticate_or_request_with_http_basic do |username, password|
-      result = valid_login?(username, password)
-      session[:user_id] = User.find_by_name(username).id if result
+    path = request.path.downcase
 
-      result
+    # Use generic http authentication for json and xml
+    if path.end_with?('.json') || path.end_with?('.xml')
+      authenticate_http
+    # Everything uses the custom html authentication
+    else
+      authenticate_html
+    end
+  end
+
+  def authenticate_http
+    return true if is_logged_in?
+
+    authenticate_or_request_with_http_basic do |username, password|
+      return logg_in(username, password)
+    end
+  end
+
+  def authenticate_html
+    unless is_logged_in?
+      redirect_to(:controller => :users, :action => :login)
+      return false
+    end
+
+    return true
+  end
+
+  def logg_in(username, password)
+    result = valid_login?(username, password)
+    session[:user_id] = User.find_by_name(username).id if result
+
+    result
+  end
+
+  def is_logged_in?
+    session[:user_id] != nil
+  end
+
+  def get_originating_user_id
+    raise "The 'get_originating_user_id' method needs to be overwritten in the controller, before calling the 'authorize_originating_user_only' method."
+  end
+
+  def is_originating_user_or_admin
+    user = User.find_by_id(session[:user_id])
+
+    return !(user == nil || (get_originating_user_id != user.id && user.user_type != 'A'))
+  end
+
+  def authorize_originating_user_only
+    unless is_originating_user_or_admin
+      flash_notice "Only that user can access this page."
+      respond_to do |format|
+        format.html { head :unauthorized }
+        format.json  { head :unauthorized }
+        format.xml  { head :unauthorized }
+      end
     end
   end
 end

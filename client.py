@@ -357,6 +357,9 @@ class Syncer(threading.Thread):
 		# Save the notes that are just on the server
 		for server_note in server_notes.values():
 			if not tomboy_notes.has_key(server_note.guid):
+				if not ignore_tomboy_event.has_key(server_note.guid): ignore_tomboy_event[server_note.guid] = 0
+				ignore_tomboy_event[server_note.guid] += 1
+
 				tomboy_notes[server_note.guid] = server_note
 				note = tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
@@ -412,6 +415,9 @@ class Syncer(threading.Thread):
 		# Save the notes that are just on the server
 		for server_note in server_notes.values():
 			if not tomboy_notes.has_key(server_note.guid):
+				if not ignore_tomboy_event.has_key(server_note.guid): ignore_tomboy_event[server_note.guid] = 0
+				ignore_tomboy_event[server_note.guid] += 1
+
 				tomboy_notes[server_note.guid] = server_note
 				note = tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))

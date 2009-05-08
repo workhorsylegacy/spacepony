@@ -273,6 +273,9 @@ def remove_tomboy_note(note):
 def set_newest_tomboy_timestamp(value):
 	global newest_tomboy_timestamp
 
+	if value == None or value <= newest_tomboy_timestamp:
+		return
+
 	newest_tomboy_timestamp = value
 	f = open('newest_tomboy_timestamp', 'w')
 	f.write(str(newest_tomboy_timestamp))
@@ -355,6 +358,8 @@ class Syncer(threading.Thread):
 		for server_note in server_notes.values():
 			if not tomboy_notes.has_key(server_note.guid):
 				tomboy_notes[server_note.guid] = server_note
+				note = tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
+				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
 				print "First Sync: Note added(new from server): " + server_note.name
 
 		# Save the notes that are just on the client
@@ -365,8 +370,7 @@ class Syncer(threading.Thread):
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():
-			if get_newest_tomboy_timestamp() == None or tomboy_note.updated_timestamp > get_newest_tomboy_timestamp():
-				set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
+			set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 
 		needs_first_sync = False
 
@@ -403,15 +407,15 @@ class Syncer(threading.Thread):
 						tomboy.SetNoteCompleteXml("note://tomboy/" + server_note.guid, base64.b64decode(server_note.body))
 						print "Normal Sync: Note updated(server newer): " + tomboy_note.name
 
-				if get_newest_tomboy_timestamp() == None or tomboy_note.updated_timestamp > get_newest_tomboy_timestamp():
-					set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
+				set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 
 		# Save the notes that are just on the server
 		for server_note in server_notes.values():
 			if not tomboy_notes.has_key(server_note.guid):
 				tomboy_notes[server_note.guid] = server_note
-				if get_newest_tomboy_timestamp() == None or server_note.updated_timestamp > get_newest_tomboy_timestamp():
-					set_newest_tomboy_timestamp(server_note.updated_timestamp)
+				note = tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
+				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
+				set_newest_tomboy_timestamp(server_note.updated_timestamp)
 				print "Normal Sync: Note added(new from server): " + server_note.name
 
 	def run(self):

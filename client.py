@@ -95,9 +95,8 @@ def add_pidgin_account(account_id, save_now = True):
 		return
 
 	# Skip adding the account if it already exists
-	for pidgin_account in pidgin_accounts.values():
-		if pidgin_account.name + ':' + pidgin_account.protocol  == account_guid:
-			return
+	if pidgin_accounts.has_key(account_guid):
+		return
 
 	# Retrieve the current status
 	status = purple.PurpleSavedstatusGetCurrent()
@@ -331,7 +330,7 @@ class Syncer(threading.Thread):
 				# but server's is newer
 				else:
 					client_note = tomboy_note
-					tomboy_note = TomboyNote.find(data['id'])
+					tomboy_note = TomboyNote.find(data['id'], user_id=data['user_id'])
 					tomboy_notes[tomboy_note.guid] = tomboy_note
 					if client_note.body != tomboy_note.body or client_note.name != tomboy_note.name or client_note.tag != tomboy_note.tag:
 						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0

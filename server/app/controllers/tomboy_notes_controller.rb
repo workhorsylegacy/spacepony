@@ -120,7 +120,8 @@ class TomboyNotesController < ApplicationController
     @data = {}
     TomboyNote.find(:all, :conditions => ['user_id=?', params[:user_id]]).each do |n|
         @data['guid-' + n.guid] = { :id => n.id, 
-                          :updated_timestamp => n.updated_timestamp}
+                                    :user_id => n.user_id, 
+                                    :updated_timestamp => n.updated_timestamp}
     end
 
     respond_to do |format|

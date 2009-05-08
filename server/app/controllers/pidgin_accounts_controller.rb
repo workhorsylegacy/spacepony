@@ -112,22 +112,6 @@ class PidginAccountsController < ApplicationController
     end
   end
 
-  # GET /pidgin_accounts/all_account_meta_data
-  # GET /pidgin_accounts/all_account_meta_data.json
-  def all_note_meta_data
-    @data = {}
-    PidginAccount.find(:all, :conditions => ['user_id=?', params[:user_id]]).each do |n|
-        @data[n.name + ':' + n.protocol] = { :id => n.id, 
-                          :updated_timestamp => n.updated_timestamp}
-    end
-
-    respond_to do |format|
-      format.html # all_note_meta_data.html.erb
-      format.json  { render :json => @data }
-      format.xml  { render :xml => @data }
-    end
-  end
-
   def get_newer
     newest_timestamp = params['newest_timestamp'].to_f
 
@@ -147,8 +131,10 @@ class PidginAccountsController < ApplicationController
   def get_originating_user_id
     id = if params.has_key? :pidgin_account
       params[:pidgin_account][:user_id]
-    else
+    elsif params.has_key? :user_id
       params[:user_id]
+    elsif params.has_key? :id
+        PidginAccount.find(params[:id]).user_id
     end
 
     User.find(id).id

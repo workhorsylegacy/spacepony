@@ -114,23 +114,6 @@ class TomboyNotesController < ApplicationController
     end
   end
 
-  # GET /tomboy_notes/all_note_meta_data
-  # GET /tomboy_notes/all_note_meta_data.json
-  def all_note_meta_data
-    @data = {}
-    TomboyNote.find(:all, :conditions => ['user_id=?', params[:user_id]]).each do |n|
-        @data['guid-' + n.guid] = { :id => n.id, 
-                                    :user_id => n.user_id, 
-                                    :updated_timestamp => n.updated_timestamp}
-    end
-
-    respond_to do |format|
-      format.html # all_note_meta_data.html.erb
-      format.json  { render :json => @data }
-      format.xml  { render :xml => @data }
-    end
-  end
-
   def get_newer
     newest_timestamp = params['newest_timestamp'].to_f
 
@@ -150,8 +133,10 @@ class TomboyNotesController < ApplicationController
   def get_originating_user_id
     id = if params.has_key? :tomboy_note
       params[:tomboy_note][:user_id]
-    else
+    elsif params.has_key? :user_id
       params[:user_id]
+    elsif params.has_key? :id
+        TomboyNote.find(params[:id]).user_id
     end
 
     User.find(id).id

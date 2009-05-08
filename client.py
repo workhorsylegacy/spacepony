@@ -2,12 +2,15 @@
 
 import dbus, gobject, dbus.glib
 import base64, time, decimal
-import sys, threading, traceback
+import sys, os, threading, traceback
 import ctypes
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 from pyactiveresource import util
 from pyactiveresource import connection
+
+# Move the path to the location of the current file
+os.chdir(os.sys.path[0])
 
 # Change the name of this process to spacepony
 try:
@@ -174,7 +177,6 @@ def remove_pidgin_account(account_id):
 	print "Server: Removed Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
 def add_tomboy_note(note, save_now = True):
-	global newest_tomboy_timestamp
 	global ignore_tomboy_event
 	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
@@ -201,17 +203,15 @@ def add_tomboy_note(note, save_now = True):
 	tomboy_note.tag = str.join(', ', tags)
 	if save_now:
 		tomboy_note.save()
+		tomboy_note = TomboyNote.find(tomboy_note.id, user_id=tomboy_note.user_id)
+		tomboy_notes[tomboy_note.guid] = tomboy_note
+		set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 	tomboy_notes[note_guid] = tomboy_note
-
-	# Save the updated_timestamp as the new greatest
-	if tomboy_note.id:
-		newest_tomboy_timestamp = tomboy_note.updated_timestamp
 
 	if save_now:
 		print "Server: Note added: " + tomboy_note.name
 
 def update_tomboy_note(note):
-	global newest_tomboy_timestamp
 	global ignore_tomboy_event
 	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
@@ -237,20 +237,19 @@ def update_tomboy_note(note):
 
 	try:
 		tomboy_note.save()
+		tomboy_note = TomboyNote.find(tomboy_note.id, user_id=tomboy_note.user_id)
+		tomboy_notes[tomboy_note.guid] = tomboy_note
+		set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 	except Exception, err:
 		if str(err) == "HTTP Error 404: Not Found":
 			tomboy.HideNote(note)
 			tomboy.DeleteNote(note)
 			tomboy_notes.pop(note_guid)
 
-	# Save the updated_timestamp as the new greatest
-	newest_tomboy_timestamp = tomboy_note.updated_timestamp
-
 	print "Server: Note updated: " + tomboy_note.name
 
 
 def remove_tomboy_note(note):
-	global newest_tomboy_timestamp
 	global ignore_tomboy_event
 	global tomboy_notes
 	note_guid = str(note).replace("note://tomboy/", "")
@@ -266,13 +265,33 @@ def remove_tomboy_note(note):
 
 	# Remove the note
 	tomboy_note = tomboy_notes[note_guid]
-	try:
-		tomboy_note.destroy()
-	except:
-		pass
+	tomboy_note.destroy()
 	tomboy_notes.pop(note_guid)
 
 	print "Server: Note deleted: " + tomboy_note.name
+
+def set_newest_tomboy_timestamp(value):
+	global newest_tomboy_timestamp
+
+	newest_tomboy_timestamp = value
+	f = open('newest_tomboy_timestamp', 'w')
+	f.write(str(newest_tomboy_timestamp))
+	f.close()
+
+def get_newest_tomboy_timestamp():
+	global newest_tomboy_timestamp
+
+	if newest_tomboy_timestamp == None and os.path.exists('newest_tomboy_timestamp'):
+		f = open('newest_tomboy_timestamp', 'r')
+		try:
+			value = decimal.Decimal(f.read())
+			if value != '':
+				newest_tomboy_timestamp = value
+		except:
+			pass
+		f.close()
+
+	return newest_tomboy_timestamp
 
 """
 Syncs notes to and from the server
@@ -283,7 +302,6 @@ class Syncer(threading.Thread):
 		threading.Thread.__init__(self, name=name)
 
 	def __first_sync(self):
-		global newest_tomboy_timestamp
 		global newest_pidgin_timestamp
 		global needs_first_sync
 		global ignore_tomboy_event
@@ -307,80 +325,94 @@ class Syncer(threading.Thread):
 		for note in tomboy.ListAllNotes():
 			add_tomboy_note(note, False)
 
-		# Get list of all note guids and change dates from server
-		datas = TomboyNote.get('all_note_meta_data', user_id=user.id)
-		if len(datas) == 0 or str(datas) == "" or datas == "\n":
-			datas = {}
-
-		# Remove prefix from guids. They are only needed to be valid xml
-		for key, value in datas.iteritems():
-			datas.pop(key)
-			datas[key.replace("guid_", "").replace("_", "-")] = value
+		# Find the notes on the server that are newer or updated
+		newest_timestamp = get_newest_tomboy_timestamp() or 0
+		server_notes = {}
+		for server_note in TomboyNote.get('get_newer', newest_timestamp=newest_timestamp, user_id=user.id):
+			server_note = TomboyNote(server_note)
+			server_notes[server_note.guid] = server_note
 
 		# Update the notes on the server and client
-		for guid, data in datas.iteritems():
+		for server_note in server_notes.values():
 			# Is on server and client ...
-			if tomboy_notes.has_key(guid):
-				tomboy_note = tomboy_notes[guid]
+			if tomboy_notes.has_key(server_note.guid):
+				tomboy_note = tomboy_notes[server_note.guid]
 				# but client's is newer
-				if tomboy_note.id and tomboy_note.updated_timestamp > decimal.Decimal(data["updated_timestamp"]):
-					tomboy_note.id = int(data['id'])
+				if tomboy_note.id and tomboy_note.updated_timestamp > server_note.updated_timestamp:
 					tomboy_note.save()
 					print "First Sync: Note updated(client newer): " + tomboy_note.name
 				# but server's is newer
 				else:
-					client_note = tomboy_note
-					tomboy_note = TomboyNote.find(data['id'], user_id=data['user_id'])
-					tomboy_notes[tomboy_note.guid] = tomboy_note
-					if client_note.body != tomboy_note.body or client_note.name != tomboy_note.name or client_note.tag != tomboy_note.tag:
+					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
 						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
 						ignore_tomboy_event[tomboy_note.guid] += 1
-						tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
+
+						tomboy_notes[tomboy_note.guid] = server_note
+						tomboy.SetNoteCompleteXml("note://tomboy/" + tomboy_note.guid, base64.b64decode(server_note.body))
 					print "First Sync: Note updated(server newer): " + tomboy_note.name
-		
+
+		# Save the notes that are just on the server
+		for server_note in server_notes.values():
+			if not tomboy_notes.has_key(server_note.guid):
+				tomboy_notes[server_note.guid] = server_note
+				print "First Sync: Note added(new from server): " + server_note.name
+
 		# Save the notes that are just on the client
-		for guid, tomboy_note in tomboy_notes.iteritems():
-			if not datas.has_key(guid):
+		for tomboy_note in tomboy_notes.values():
+			if not server_notes.has_key(tomboy_note.guid):
 				tomboy_note.save()
 				print "First Sync: Note added(new from client): " + tomboy_note.name
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():
-			if newest_tomboy_timestamp == None or tomboy_note.updated_timestamp > newest_tomboy_timestamp:
-				newest_tomboy_timestamp = tomboy_note.updated_timestamp
+			if get_newest_tomboy_timestamp() == None or tomboy_note.updated_timestamp > get_newest_tomboy_timestamp():
+				set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 
 		needs_first_sync = False
 
 	def __normal_sync(self):
-		global newest_tomboy_timestamp
 		global ignore_tomboy_event
 		global tomboy_notes
 
 		# Find the notes on the server that are newer or updated
-		for server_note in TomboyNote.get('get_newer', newest_timestamp=newest_tomboy_timestamp, user_id=user.id):
-			# Convert the dict to a note
-			tomboy_note = TomboyNote(server_note)
+		newest_timestamp = get_newest_tomboy_timestamp() or 0
+		server_notes = {}
+		for server_note in TomboyNote.get('get_newer', newest_timestamp=newest_timestamp, user_id=user.id):
+			server_note = TomboyNote(server_note)
+			server_notes[server_note.guid] = server_note
 
-			# Update existing note
-			if tomboy_notes.has_key(tomboy_note.guid):
-				for note in tomboy.ListAllNotes():
-					if str(note) == "note://tomboy/" + tomboy_note.guid:
-						tomboy_notes[tomboy_note.guid] = tomboy_note
+		# Update the notes on the server and client
+		for server_note in server_notes.values():
+			# Is on server and client ...
+			if tomboy_notes.has_key(server_note.guid):
+				tomboy_note = tomboy_notes[server_note.guid]
+				# but client's is newer
+				if tomboy_note.id and tomboy_note.updated_timestamp > server_note.updated_timestamp:
+					tomboy_note.save()
+					tomboy_note = TomboyNote.find(tomboy_note.id, user_id=tomboy_note.user_id)
+					tomboy_notes[tomboy_note.guid] = tomboy_note
+					print "Normal Sync: Note updated(client newer): " + tomboy_note.name
+				# but server's is newer
+				else:
+					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
 						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
 						ignore_tomboy_event[tomboy_note.guid] += 1
-						tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
-						print "Syncer: Note updated: " + tomboy_note.name
-			# Create new note
-			else:
-				tomboy_notes[tomboy_note.guid] = tomboy_note
-				if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
-				ignore_tomboy_event[tomboy_note.guid] += 1
-				note = tomboy.CreateNamedNoteWithUri(tomboy_note.name, "note://tomboy/" + tomboy_note.guid)
-				tomboy.SetNoteCompleteXml(note, base64.b64decode(tomboy_note.body))
-				print "Syncer: Note added: " + tomboy_note.name
 
-			if newest_tomboy_timestamp == None or tomboy_note.updated_timestamp > newest_tomboy_timestamp:
-				newest_tomboy_timestamp = tomboy_note.updated_timestamp
+						tomboy_note = server_note
+						tomboy_notes[tomboy_note.guid] = server_note
+						tomboy.SetNoteCompleteXml("note://tomboy/" + server_note.guid, base64.b64decode(server_note.body))
+						print "Normal Sync: Note updated(server newer): " + tomboy_note.name
+
+				if get_newest_tomboy_timestamp() == None or tomboy_note.updated_timestamp > get_newest_tomboy_timestamp():
+					set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
+
+		# Save the notes that are just on the server
+		for server_note in server_notes.values():
+			if not tomboy_notes.has_key(server_note.guid):
+				tomboy_notes[server_note.guid] = server_note
+				if get_newest_tomboy_timestamp() == None or server_note.updated_timestamp > get_newest_tomboy_timestamp():
+					set_newest_tomboy_timestamp(server_note.updated_timestamp)
+				print "Normal Sync: Note added(new from server): " + server_note.name
 
 	def run(self):
 		global needs_first_sync

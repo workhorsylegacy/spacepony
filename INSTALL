@@ -24,7 +24,22 @@ ruby script/server --binding=192.168.1.101
 
 
 
-# On the client you will need to install dependencies and run the script:
+# On the client you will need to install dependencies, patched tomboy, and run the script:
+
+# Remove your existing tomboy
+sudo apt-get remove tomboy
+
+# Download tomboy source, uncompress it, patch it, build, and install
+sudo apt-get install intltool mono-gmcs mono-devel libgtk2.0-dev
+cd ~
+wget http://download.gnome.org/sources/tomboy/0.15/tomboy-0.15.0.tar.gz
+tar -xzvf tomboy-0.15.0.tar.gz
+wget http://workhorsy.org/junk/create_named_note_with_uri.patch
+patch -p0 < create_named_note_with_uri.patch
+cd tomboy-0.15.0
+./configure
+make
+sudo make install
 
 # get the code
 sudo apt-get instal bzr

@@ -3,7 +3,7 @@
 import dbus, gobject, dbus.glib
 import base64, time, decimal
 import sys, os, threading, traceback
-import ctypes
+import ctypes, pynotify
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 from pyactiveresource import util
@@ -66,6 +66,11 @@ try:
 except:
 	raise Exception("Please start tomboy first.")
 
+# Initialize pynotify
+if not pynotify.init("Sync notification"):
+	print "Failed to initialize pynotify. Exiting ..."
+	sys.exit(1)
+
 # Specify status ID values
 STATUS_OFFLINE = 1
 STATUS_AVAILABLE = 2
@@ -85,6 +90,25 @@ newest_pidgin_timestamp = None
 needs_first_sync = True
 ignore_tomboy_event = {}
 ignore_pidgin_event = {}
+
+def notify_tomboy(title, body):
+	n = pynotify.Notification(title, body, 
+	"file:///usr/share/app-install/icons/tomboy.png")
+	n.show()
+
+def notify_tomboy_summary(count_new_notes, count_updated_notes):
+	# If there were no changes
+	if count_new_notes + count_updated_notes == 0:
+		notify_tomboy("Notes synced from server", "No new notes or updates.")
+		return
+
+	# If there were changes show the number
+	message = ""
+	if count_new_notes > 0:
+		message += " New notes: " + str(count_new_notes)
+	if count_updated_notes > 0:
+		message += " Updated notes: " + str(count_updated_notes)
+	notify_tomboy("Notes synced from server", message)
 
 def add_pidgin_account(account_id, save_now = True):
 	global newest_pidgin_timestamp
@@ -311,6 +335,8 @@ class Syncer(threading.Thread):
 		global ignore_pidgin_event
 		global tomboy_notes
 		global pidgin_accounts
+		count_new_notes = 0
+		count_updated_notes = 0
 
 		# FIXME: Make this sync the pidgin stuff just like the tomboy stuff
 		"""
@@ -344,6 +370,7 @@ class Syncer(threading.Thread):
 				if tomboy_note.id and tomboy_note.updated_timestamp > server_note.updated_timestamp:
 					tomboy_note.save()
 					print "First Sync: Note updated(client newer): " + tomboy_note.name
+					count_updated_notes += 1
 				# but server's is newer
 				else:
 					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
@@ -353,6 +380,7 @@ class Syncer(threading.Thread):
 						tomboy_notes[tomboy_note.guid] = server_note
 						tomboy.SetNoteCompleteXml("note://tomboy/" + tomboy_note.guid, base64.b64decode(server_note.body))
 					print "First Sync: Note updated(server newer): " + tomboy_note.name
+					count_updated_notes += 1
 
 		# Save the notes that are just on the server
 		for server_note in server_notes.values():
@@ -364,17 +392,20 @@ class Syncer(threading.Thread):
 				note = tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
 				print "First Sync: Note added(new from server): " + server_note.name
+				count_new_notes += 1
 
 		# Save the notes that are just on the client
 		for tomboy_note in tomboy_notes.values():
 			if not server_notes.has_key(tomboy_note.guid):
 				tomboy_note.save()
 				print "First Sync: Note added(new from client): " + tomboy_note.name
+				count_new_notes += 1
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in tomboy_notes.values():
 			set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 
+		notify_tomboy_summary(count_new_notes, count_updated_notes)
 		needs_first_sync = False
 
 	def __normal_sync(self):
@@ -409,6 +440,7 @@ class Syncer(threading.Thread):
 						tomboy_notes[tomboy_note.guid] = server_note
 						tomboy.SetNoteCompleteXml("note://tomboy/" + server_note.guid, base64.b64decode(server_note.body))
 						print "Normal Sync: Note updated(server newer): " + tomboy_note.name
+						notify_tomboy("Updated tomboy note", tomboy_note.name)
 
 				set_newest_tomboy_timestamp(tomboy_note.updated_timestamp)
 
@@ -423,6 +455,7 @@ class Syncer(threading.Thread):
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
 				set_newest_tomboy_timestamp(server_note.updated_timestamp)
 				print "Normal Sync: Note added(new from server): " + server_note.name
+				notify_tomboy("Added tomboy note", server_note.name)
 
 	def run(self):
 		global needs_first_sync

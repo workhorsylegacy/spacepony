@@ -121,8 +121,23 @@ class PidginAccountsController < ApplicationController
 
     respond_to do |format|
       format.html # get_newer.html.erb
-      format.json  { render :json => @pidgin_accounts }
-      format.xml  { render :xml => @pidgin_accounts }
+      format.json  { render :text => @pidgin_accounts.to_json }
+      format.xml  { render :text => @pidgin_accounts.to_xml }
+    end
+  end
+
+  def get_meta
+    @pidgin_accounts = PidginAccount.find(:all, :conditions => ['user_id=?', 
+                                                          params[:user_id]])
+
+    @pidgin_accounts.each do |p|
+        p.apply_meta_filter()
+    end
+
+    respond_to do |format|
+      format.html # get_meta.html.erb
+      format.json  { render :text => @pidgin_accounts.to_json }
+      format.xml  { render :text => @pidgin_accounts.to_xml }
     end
   end
 

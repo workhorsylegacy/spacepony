@@ -130,7 +130,6 @@ def notify_pidgin_summary(count_new_accounts, count_updated_accounts):
 	notify_pidgin("Accounts synced from server", message)
 
 def add_pidgin_account(account_id, save_now = True):
-	global newest_pidgin_timestamp
 	global ignore_pidgin_event
 	global pidgin_accounts
 	account_guid = purple.PurpleAccountGetUsername(account_id) + ':' + purple.PurpleAccountGetProtocolId(account_id)
@@ -154,7 +153,7 @@ def add_pidgin_account(account_id, save_now = True):
 	pidgin_account.status = str(purple.PurplePrimitiveGetIdFromType(purple.PurpleSavedstatusGetType(status)))
 	pidgin_account.message = str(purple.PurpleSavedstatusGetMessage(status) or "")
 	pidgin_account.protocol = str(purple.PurpleAccountGetProtocolId(account_id))
-	pidgin_account.icon = str(purple.PurpleAccountGetBuddyIconPath(account_id))
+	pidgin_account.icon = str(purple.PurpleAccountGetBuddyIconPath(account_id) or "")
 	if save_now:
 		pidgin_account.save()
 		pidgin_account = PidginAccount.find(pidgin_account.id, user_id=pidgin_account.user_id)
@@ -166,7 +165,6 @@ def add_pidgin_account(account_id, save_now = True):
 		print "Server: Added Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
 def update_pidgin_account_status(account_id, old, new):
-	global newest_pidgin_timestamp
 	global ignore_pidgin_event
 	global pidgin_accounts
 	account_guid = purple.PurpleAccountGetUsername(account_id) + ':' + purple.PurpleAccountGetProtocolId(account_id)
@@ -395,9 +393,9 @@ class Syncer(threading.Thread):
 		# Find the pidgin accounts on the server that are newer or updated
 		newest_timestamp = get_newest_pidgin_timestamp() or 0
 		server_accounts = {}
-		for server_account in PidginAccount.get('get_newer', newest_timestamp=newest_timestamp, user_id=user.id):
-			server_guid = server_account.name + ':' + server_account.protocol
+		for server_account in PidginAccount.get('get_meta', user_id=user.id):
 			server_account = PidginAccount(server_account)
+			server_guid = server_account.name + ':' + server_account.protocol
 			server_accounts[server_guid] = server_account
 
 		# Update the pidgin accounts on the server and client
@@ -413,32 +411,40 @@ class Syncer(threading.Thread):
 					count_updated_accounts += 1
 				# but server's is newer
 				else:
+					server_account = PidginAccount.find(server_account.id, user_id=server_account.user_id)
 					account_id = purple.PurpleAccountsFind(server_account.name, server_account.protocol)
+					account_changed = False
 
-					if not ignore_pidgin_event.has_key(pidgin_account): ignore_pidgin_event[pidgin_account] = 0
-					ignore_pidgin_event[pidgin_account] += 1
+					if not ignore_pidgin_event.has_key(server_guid): ignore_pidgin_event[server_guid] = 0
+					ignore_pidgin_event[server_guid] += 1
 
 					if pidgin_account.name != server_account.name:
+						account_changed = True
 						purple.PurpleAccountSetUsername(account_id, pidgin_account.name)
-					if pidgin_account.hashed_password != server_account.hashed_password:
-						purple.PurpleAccountSetPassword(account_id, pidgin_account.name)
-					if pidgin_account.salt != server_account.salt:
-						pass
-					if pidgin_account.status != server_account.status or \
-						pidgin_account.message != server_account.message:
-						purple.PurpleSavedstatusSetMessage(server_account.status, server_account.message)
+					if pidgin_account.password != server_account.password:
+						account_changed = True
+						purple.PurpleAccountSetPassword(account_id, pidgin_account.password)
+					if (pidgin_account.status or '') != (server_account.status or '') or \
+						(pidgin_account.message or '') != (server_account.message or ''):
+						account_changed = True
+						status = purple.PurpleSavedstatusFind(server_account.status)
+						purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
 					if pidgin_account.protocol != server_account.protocol:
+						account_changed = True
 						purple.PurpleAccountSetProtocolId(account_id, server_account.protocol)
-					if pidgin_account.icon != server_account.icon:
-						purple.PurpleAccountSetBuddyIconPath(account_id, server_account.protocol)
+					if (pidgin_account.icon or '') != (server_account.icon or ''):
+						account_changed = True
+						purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon or "")
 
 					pidgin_accounts[server_guid] = server_account
 
-					print "First Sync: Account updated(server newer): " + server_account.name
-					count_updated_accounts += 1
+					if account_changed:
+						print "First Sync: Account updated(server newer): " + server_account.name
+						count_updated_accounts += 1
 
 		# Save the pidgin accounts that are just on the server
 		for server_account in server_accounts.values():
+			server_account = PidginAccount.find(server_account.id, user_id=server_account.user_id)
 			server_guid = server_account.name + ':' + server_account.protocol
 
 			if not pidgin_accounts.has_key(server_guid):
@@ -446,9 +452,19 @@ class Syncer(threading.Thread):
 				ignore_pidgin_event[server_guid] += 1
 
 				pidgin_accounts[server_guid] = server_account
-				account = purple.PurpleAccountNew(server_account.name, server_account.protocol)
+				account_id = purple.PurpleAccountNew(server_account.name, server_account.protocol)
+				purple.PurpleAccountsAdd(account_id)
+
+				purple.PurpleAccountSetRememberPassword(account_id, 1)
+				purple.PurpleAccountSetPassword(account_id, server_account.password)
+
+				purple.PurpleAccountSetEnabled(account_id, "gtk-gaim", 1)
+
+				status = purple.PurpleSavedstatusFind(server_account.status)
+				purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+				purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
 				print "First Sync: Account added(new from server): " + server_account.name
-				count_new_notes += 1
+				count_new_accounts += 1
 
 		# Save the pidgin accounts that are just on the client
 		for pidgin_account in pidgin_accounts.values():
@@ -493,14 +509,20 @@ class Syncer(threading.Thread):
 					count_updated_notes += 1
 				# but server's is newer
 				else:
-					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
-						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
-						ignore_tomboy_event[tomboy_note.guid] += 1
+					account_changed = False
 
-						tomboy_notes[tomboy_note.guid] = server_note
+					if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
+					ignore_tomboy_event[tomboy_note.guid] += 1
+
+					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
+						account_changed = True
 						tomboy.SetNoteCompleteXml("note://tomboy/" + tomboy_note.guid, base64.b64decode(server_note.body))
-					print "First Sync: Note updated(server newer): " + tomboy_note.name
-					count_updated_notes += 1
+
+					tomboy_notes[tomboy_note.guid] = server_note
+
+					if account_changed:
+						print "First Sync: Note updated(server newer): " + tomboy_note.name
+						count_updated_notes += 1
 
 		# Save the notes that are just on the server
 		for server_note in server_notes.values():
@@ -528,8 +550,73 @@ class Syncer(threading.Thread):
 		notify_tomboy_summary(count_new_notes, count_updated_notes)
 
 	def __normal_sync_pidgin(self):
-		#FIXME: Make this work just like the tomboy one
-		pass
+		global ignore_pidgin_event
+		global pidgin_accounts
+
+		# Find the pidgin accounts on the server that are newer or updated
+		newest_timestamp = get_newest_pidgin_timestamp() or 0
+		server_accounts = {}
+		for server_account in PidginAccount.get('get_newer', newest_timestamp=newest_timestamp, user_id=user.id):
+			server_guid = server_account.name + ':' + server_account.protocol
+			server_account = PidginAccount(server_account)
+			server_accounts[server_guid] = server_account
+
+		# Update the pidgin accounts on the server and client
+		for server_account in server_accounts.values():
+			server_guid = server_account.name + ':' + server_account.protocol
+			# Is on server and client ...
+			if pidgin_accounts.has_key(server_account.guid):
+				pidgin_account = pidgin_accounts[server_guid]
+				# but client's is newer
+				if pidgin_account.id and pidgin_account.updated_timestamp > server_account.updated_timestamp:
+					pidgin_account.save()
+					pidgin_account = PidginAccount.find(pidgin_account.id, user_id=pidgin_account.user_id)
+					pidgin_accounts[server_guid] = pidgin_account
+					print "Normal Sync: Account updated(client newer): " + pidgin_account.name
+				# but server's is newer
+				else:
+					account_id = purple.PurpleAccountsFind(server_account.name, server_account.protocol)
+					account_changed = False
+
+					if not ignore_pidgin_event.has_key(server_guid): ignore_pidgin_event[server_guid] = 0
+					ignore_pidgin_event[server_guid] += 1
+
+					if pidgin_account.name != server_account.name:
+						account_changed = True
+						purple.PurpleAccountSetUsername(account_id, pidgin_account.name)
+					if pidgin_account.password != server_account.password:
+						account_changed = True
+						purple.PurpleAccountSetPassword(account_id, pidgin_account.password)
+					if (pidgin_account.status or '') != (server_account.status or '') or \
+						(pidgin_account.message or '') != (server_account.message or ''):
+						account_changed = True
+						status = purple.PurpleSavedstatusFind(server_account.status)
+						purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+					if pidgin_account.protocol != server_account.protocol:
+						account_changed = True
+						purple.PurpleAccountSetProtocolId(account_id, server_account.protocol)
+					if (pidgin_account.icon or '') != (server_account.icon or ''):
+						account_changed = True
+						purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon or "")
+
+					if account_changed:
+						print "Normal Sync: Account updated(server newer): " + server_account.name
+						notify_pidgin("Updated pidgin account", server_account.name)
+
+				set_newest_pidgin_timestamp(server_account.updated_timestamp)
+
+		# Save the pidgin accounts that are just on the server
+		for server_account in server_accounts.values():
+			server_guid = server_account.name + ':' + server_account.protocol
+			if not pidgin_accounts.has_key(server_guid):
+				if not ignore_pidgin_event.has_key(server_guid): ignore_pidgin_event[server_guid] = 0
+				ignore_pidgin_event[server_guid] += 1
+
+				pidgin_accounts[server_guid] = server_account
+				account = purple.PurpleAccountNew(server_account.name, server_account.protocol)
+				set_newest_pidgin_timestamp(server_account.updated_timestamp)
+				print "Normal Sync: Account added(new from server): " + server_account.name
+				notify_pidgin("Added pidgin account", server_account.name)
 
 	def __normal_sync_tomboy(self):
 		global ignore_tomboy_event

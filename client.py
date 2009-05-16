@@ -462,7 +462,8 @@ class Syncer(threading.Thread):
 
 				status = purple.PurpleSavedstatusFind(server_account.status)
 				purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
-				purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
+				if server_account.icon and server_account.icon != '':
+					purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
 				print "First Sync: Account added(new from server): " + server_account.name
 				count_new_accounts += 1
 
@@ -493,7 +494,7 @@ class Syncer(threading.Thread):
 		# Find the notes on the server that are newer or updated
 		newest_timestamp = get_newest_tomboy_timestamp() or 0
 		server_notes = {}
-		for server_note in TomboyNote.get('get_newer', newest_timestamp=newest_timestamp, user_id=user.id):
+		for server_note in TomboyNote.get('get_meta', user_id=user.id):
 			server_note = TomboyNote(server_note)
 			server_notes[server_note.guid] = server_note
 
@@ -509,6 +510,7 @@ class Syncer(threading.Thread):
 					count_updated_notes += 1
 				# but server's is newer
 				else:
+					server_note = TomboyNote.find(server_note.id, user_id=server_note.user_id)
 					account_changed = False
 
 					if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
@@ -530,6 +532,7 @@ class Syncer(threading.Thread):
 				if not ignore_tomboy_event.has_key(server_note.guid): ignore_tomboy_event[server_note.guid] = 0
 				ignore_tomboy_event[server_note.guid] += 1
 
+				server_note = TomboyNote.find(server_note.id, user_id=server_note.user_id)
 				tomboy_notes[server_note.guid] = server_note
 				note = tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
 				tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
@@ -557,15 +560,15 @@ class Syncer(threading.Thread):
 		newest_timestamp = get_newest_pidgin_timestamp() or 0
 		server_accounts = {}
 		for server_account in PidginAccount.get('get_newer', newest_timestamp=newest_timestamp, user_id=user.id):
-			server_guid = server_account.name + ':' + server_account.protocol
 			server_account = PidginAccount(server_account)
+			server_guid = server_account.name + ':' + server_account.protocol
 			server_accounts[server_guid] = server_account
 
 		# Update the pidgin accounts on the server and client
 		for server_account in server_accounts.values():
 			server_guid = server_account.name + ':' + server_account.protocol
 			# Is on server and client ...
-			if pidgin_accounts.has_key(server_account.guid):
+			if pidgin_accounts.has_key(server_guid):
 				pidgin_account = pidgin_accounts[server_guid]
 				# but client's is newer
 				if pidgin_account.id and pidgin_account.updated_timestamp > server_account.updated_timestamp:
@@ -613,7 +616,22 @@ class Syncer(threading.Thread):
 				ignore_pidgin_event[server_guid] += 1
 
 				pidgin_accounts[server_guid] = server_account
-				account = purple.PurpleAccountNew(server_account.name, server_account.protocol)
+				account_id = purple.PurpleAccountNew(server_account.name, server_account.protocol)
+				purple.PurpleAccountsAdd(account_id)
+
+				purple.PurpleAccountSetRememberPassword(account_id, 1)
+				purple.PurpleAccountSetPassword(account_id, server_account.password)
+
+				purple.PurpleAccountSetEnabled(account_id, "gtk-gaim", 1)
+
+				status = purple.PurpleSavedstatusFind(server_account.status)
+				purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+				if server_account.icon and server_account.icon != '':
+					purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
+
+
+
+
 				set_newest_pidgin_timestamp(server_account.updated_timestamp)
 				print "Normal Sync: Account added(new from server): " + server_account.name
 				notify_pidgin("Added pidgin account", server_account.name)
@@ -642,13 +660,19 @@ class Syncer(threading.Thread):
 					print "Normal Sync: Note updated(client newer): " + tomboy_note.name
 				# but server's is newer
 				else:
+					account_changed = False
+
 					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
 						if not ignore_tomboy_event.has_key(tomboy_note.guid): ignore_tomboy_event[tomboy_note.guid] = 0
 						ignore_tomboy_event[tomboy_note.guid] += 1
 
+						account_changed = True
 						tomboy_note = server_note
-						tomboy_notes[tomboy_note.guid] = server_note
 						tomboy.SetNoteCompleteXml("note://tomboy/" + server_note.guid, base64.b64decode(server_note.body))
+
+					tomboy_notes[tomboy_note.guid] = server_note
+
+					if account_changed:
 						print "Normal Sync: Note updated(server newer): " + tomboy_note.name
 						notify_tomboy("Updated tomboy note", tomboy_note.name)
 
@@ -679,6 +703,7 @@ class Syncer(threading.Thread):
 				else:
 					self.__normal_sync_pidgin()
 					self.__normal_sync_tomboy()
+					pass
 				time.sleep(5)
 
 			except Exception:

@@ -123,8 +123,23 @@ class TomboyNotesController < ApplicationController
 
     respond_to do |format|
       format.html # get_newer.html.erb
-      format.json  { render :json => @tomboy_notes }
-      format.xml  { render :xml => @tomboy_notes }
+      format.json  { render :text => @tomboy_notes.to_json }
+      format.xml  { render :text => @tomboy_notes.to_xml }
+    end
+  end
+
+  def get_meta
+    @tomboy_notes = TomboyNote.find(:all, :conditions => ['user_id=?', 
+                                                          params[:user_id]])
+
+    @tomboy_notes.each do |n|
+        n.apply_meta_filter()
+    end
+
+    respond_to do |format|
+      format.html # get_meta.html.erb
+      format.json  { render :text => @tomboy_notes.to_json }
+      format.xml  { render :text => @tomboy_notes.to_xml }
     end
   end
 

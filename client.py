@@ -99,7 +99,7 @@ def notify_tomboy(title, body):
 def notify_tomboy_summary(count_new_notes, count_updated_notes):
 	# If there were no changes
 	if count_new_notes + count_updated_notes == 0:
-		notify_tomboy("Notes synced from server", "No new notes or updates.")
+		notify_tomboy("Notes synced with server", "No new notes or updates.")
 		return
 
 	# If there were changes show the number
@@ -108,7 +108,7 @@ def notify_tomboy_summary(count_new_notes, count_updated_notes):
 		message += " New notes: " + str(count_new_notes)
 	if count_updated_notes > 0:
 		message += " Updated notes: " + str(count_updated_notes)
-	notify_tomboy("Notes synced from server", message)
+	notify_tomboy("Notes synced with server", message)
 
 def notify_pidgin(title, body):
 	n = pynotify.Notification(title, body, 
@@ -118,7 +118,7 @@ def notify_pidgin(title, body):
 def notify_pidgin_summary(count_new_accounts, count_updated_accounts):
 	# If there were no changes
 	if count_new_accounts + count_updated_accounts == 0:
-		notify_pidgin("Pidgin Accounts synced from server", "No new accounts or updates.")
+		notify_pidgin("Pidgin Accounts synced with server", "No new accounts or updates.")
 		return
 
 	# If there were changes show the number
@@ -127,7 +127,7 @@ def notify_pidgin_summary(count_new_accounts, count_updated_accounts):
 		message += " New accounts: " + str(count_new_accounts)
 	if count_updated_accounts > 0:
 		message += " Updated accounts: " + str(count_updated_accounts)
-	notify_pidgin("Accounts synced from server", message)
+	notify_pidgin("Accounts synced with server", message)
 
 def add_pidgin_account(account_id, save_now = True):
 	global ignore_pidgin_event

@@ -9,6 +9,29 @@
 </p>
 
 <p>
+  <b>Avatar:</b>
+  <%= link_to 'Edit', :action => 'avatar', :id => @user.id %><br />
+
+  <% if @user.avatar %>
+  <%=h@user.avatar.server_name%>
+  <% else %>
+    none
+  <% end %>
+</p>
+
+
+<p>
+  <b>Background:</b>
+  <%= link_to 'Edit', :action => 'background', :id => @user.id %><br />
+
+  <% if @user.background %>
+  <%=h@user.background.server_name%>
+  <% else %>
+    none
+  <% end %>
+</p>
+
+<p>
   <%= link_to 'Tomboy Notes', :controller => :tomboy_notes, :action => :index, :user_id => @user.id %>
 </p>
 

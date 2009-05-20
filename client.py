@@ -3,7 +3,7 @@
 import dbus, gobject, dbus.glib
 import base64, time, decimal
 import sys, os, threading, traceback
-import ctypes, pynotify
+import ctypes, pynotify, pyinotify
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 from pyactiveresource import util
@@ -770,6 +770,60 @@ bus.add_signal_receiver(onNoteDeleted,
 						dbus_interface = "org.gnome.Tomboy.RemoteControl",
 						signal_name = "NoteDeleted")
 
+class UserFileSyncer(object):
+	def __init__():
+		self.files = []
+
+	class EventHandler(pyinotify.ProcessEvent):
+		def __init__(parent):
+			self.parent = parent
+
+		# update
+		def process_IN_MODIFY(self, event):
+			if not self._file_we_want(event.name): return
+
+		# new
+		def process_IN_CREATE(self, event):
+			if not self._file_we_want(event.name): return
+
+		# new
+		def process_IN_MOVED_TO(self, event):
+			if not self._file_we_want(event.name): return
+
+		# destroy
+		def process_IN_DELETE(self, event):
+			if not self._file_we_want(event.name): return
+
+		# destroy
+		def process_IN_MOVED_FROM(self, event):
+			if not self._file_we_want(event.name): return
+
+		def _file_we_want(file_name):
+			return self.parent.get_files().count(file_name) > 0
+
+	def get_files():
+		return self.files
+
+	def start():
+		# Get the files to watch
+		self.path = '/home/matt/'
+		self.files = ['.face']
+
+		# only watch those events
+		mask = pyinotify.EventsCodes.IN_MODIFY | \
+				pyinotify.EventsCodes.IN_DELETE | \
+				pyinotify.EventsCodes.IN_CREATE | 
+				pyinotify.EventsCodes.IN_MOVED_FROM | \
+				pyinotify.EventsCodes.IN_MOVED_TO
+
+		# Start watching those files
+		wm = pyinotify.WatchManager()
+		notifier = pyinotify.ThreadedNotifier(wm, EventHandler())
+		notifier.start()
+		wm.add_watch(self.path, mask)
+
+file_syncer = UserFileSyncer()
+file_syncer.start()
 
 print "client running ..."
 

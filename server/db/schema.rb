@@ -9,7 +9,17 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20090501183037) do
+ActiveRecord::Schema.define(:version => 20090517074259) do
+
+  create_table "bins", :force => true do |t|
+    t.integer "user_id",           :limit => 11,                                                 :null => false
+    t.string  "file_name",                                                       :default => "", :null => false
+    t.string  "server_name",                                                     :default => "", :null => false
+    t.string  "file_type",                                                       :default => "", :null => false
+    t.string  "mime_type",                                                       :default => "", :null => false
+    t.decimal "created_timestamp",               :precision => 20, :scale => 10
+    t.decimal "updated_timestamp",               :precision => 20, :scale => 10
+  end
 
   create_table "pidgin_accounts", :force => true do |t|
     t.integer "user_id",           :limit => 11,                                                 :null => false
@@ -35,12 +45,14 @@ ActiveRecord::Schema.define(:version => 20090501183037) do
   end
 
   create_table "users", :force => true do |t|
-    t.string   "name",            :default => "", :null => false
-    t.string   "hashed_password", :default => "", :null => false
-    t.string   "salt",                            :null => false
-    t.string   "email",           :default => "", :null => false
+    t.string   "name",                          :default => "", :null => false
+    t.string   "hashed_password",               :default => "", :null => false
+    t.string   "salt",                                          :null => false
+    t.string   "email",                         :default => "", :null => false
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.integer  "avatar_id",       :limit => 11
+    t.integer  "background_id",   :limit => 11
   end
 
 end

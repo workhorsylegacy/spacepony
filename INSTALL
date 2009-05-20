@@ -42,7 +42,7 @@ make
 sudo make install
 
 # get the code
-sudo apt-get instal bzr
+sudo apt-get instal bzr python-pyinotify python-notify
 cd ~
 bzr branch lp:spacepony
 cd spacepony

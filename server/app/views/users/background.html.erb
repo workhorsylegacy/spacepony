@@ -1,0 +1,26 @@
+
+<p>
+	<b>Background:</b>
+	<% if @user.background %>
+	<img src="<%=h@user.background.server_name%>" width="200" height="200"/>
+	<% else %>
+		none
+	<% end %>
+</p>
+
+<p>
+	<% form_tag({ :action => 'background' }, :multipart => true ) do %>
+		File: <%= file_field_tag :file %>
+		<%= hidden_field_tag :id, params[:id] %>
+		<br />
+
+		Path: <%= text_field_tag 'original_path', params[:original_path] %>
+		<br />
+
+		<%= submit_tag "Upload background" %>
+	<% end %>
+</p>
+
+<p>
+	<%= link_to 'Back', :action => 'show', :id => @user.id %>
+</p>

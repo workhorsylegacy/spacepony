@@ -1,0 +1,26 @@
+
+<p>
+	<b>Avatar:</b>
+	<% if @user.avatar %>
+	<img src="<%=h@user.avatar.server_name%>" width="200" height="200"/>
+	<% else %>
+		none
+	<% end %>
+</p>
+
+<p>
+	<% form_tag({ :action => 'avatar' }, :multipart => true ) do %>
+		File: <%= file_field_tag :file %>
+		<%= hidden_field_tag :id, params[:id] %>
+		<br />
+
+		Path: <%= text_field_tag 'original_path', params[:original_path] %>
+		<br />
+
+		<%= submit_tag "Upload avatar" %>
+	<% end %>
+</p>
+
+<p>
+	<%= link_to 'Back', :action => 'show', :id => @user.id %>
+</p>

@@ -1,7 +1,13 @@
 ActionController::Routing::Routes.draw do |map|
-  map.resources :tomboy_notes, :collection => { :get_newer => :get, :get_meta => :get }
-  map.resources :pidgin_accounts, :collection => { :get_newer => :get, :get_meta => :get}
-  map.resources :users, :collection => { :ensure_user_exists =>:get, :get_logged_in_user => :get, :login => :get }
+  map.resources :tomboy_notes, :collection => { :get_newer => :get, 
+                                                :get_meta => :get }
+  map.resources :pidgin_accounts, :collection => { :get_newer => :get, 
+                                                   :get_meta => :get }
+  map.resources :users, :collection => { :ensure_user_exists =>:get, 
+                                         :get_logged_in_user => :get, 
+                                         :login => :get, 
+                                         :background => :get, 
+                                         :avatar => :get }
   map.resources :home
 
   map.root :controller => 'home'

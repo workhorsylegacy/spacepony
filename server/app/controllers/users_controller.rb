@@ -83,6 +83,50 @@ class UsersController < ApplicationController
     end
   end
 
+  def avatar
+    @user = User.find(params[:id])
+
+    return if request.get?
+
+    @bin = Bin.existing_or_new(@user, params['file'], params['original_path'], 'avatar')
+
+    # Save the file and user
+    respond_to do |format|
+      if @bin.errors.length == 0 && @bin.save && @user.update_attributes(:avatar_id => @bin.id)
+        flash[:notice] = "The avatar was successfully saved."
+        format.html { redirect_to(:action => "avatar", :id => @user.id) }
+        format.json  { head :ok }
+        format.xml  { head :ok }
+      else
+        format.html { render :action => "avatar", :id => @user.id }
+        format.json	{ render :json => @bin.errors, :status => :unprocessable_entity }
+        format.xml	{ render :xml => @bin.errors, :status => :unprocessable_entity }
+      end
+    end
+  end
+
+  def background
+    @user = User.find(params[:id])
+
+    return if request.get?
+
+    @bin = Bin.existing_or_new(@user, params['file'], params['original_path'], 'background')
+
+    # Save the file and user
+    respond_to do |format|
+      if @bin.errors.length == 0 && @bin.save && @user.update_attributes(:background_id => @bin.id)
+        flash[:notice] = "The background was successfully saved."
+        format.html { redirect_to(:action => "background", :id => @user.id) }
+        format.json  { head :ok }
+        format.xml  { head :ok }
+      else
+        format.html { render :action => "background", :id => @user.id }
+        format.json	{ render :json => @bin.errors, :status => :unprocessable_entity }
+        format.xml	{ render :xml => @bin.errors, :status => :unprocessable_entity }
+      end
+    end
+  end
+
   def login
     return unless request.post?
 

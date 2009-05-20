@@ -3,6 +3,12 @@
 class User < ActiveRecord::Base
 	has_many :pidgin_accounts
 	has_many :tomboy_notes
+	belongs_to :avatar, 
+				:class_name => 'Bin', 
+				:foreign_key => 'avatar_id'
+	belongs_to :background, 
+				:class_name => 'Bin', 
+				:foreign_key => 'background_id'
 
 	validates_uniqueness_of :name, :email, :message => "is already used by another user"
 	validates_presence_of :name, :email, :message => 'is required'

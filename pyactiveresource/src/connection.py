@@ -214,7 +214,7 @@ class Connection(object):
         """
         return Request(url)
 
-    def _open(self, method, path, headers=None, data=None):
+    def _open(self, method, path, headers=None, data=None, mime_type=None):
         """Perform an HTTP request.
 
         Args:
@@ -240,12 +240,11 @@ class Connection(object):
                                        request.headers.items()])
             self.log.debug('request-headers:%s', header_string)
 
-        # Set the content type. Use the formats or fall back on the default
-        #if data and self.format.is_this_format(data):
-        #    request.add_header('Content-Type', self.format.mime_type)
-        #else:
-        #    request.add_header('Content-Type', 'image/jpeg')
-        request.add_header('Content-Type', 'image/jpeg')
+        # Set the content type. Use the formats as default
+        if data and mime_type:
+            request.add_header('Content-Type', mime_type)
+        else:
+            request.add_header('Content-Type', self.format.mime_type)
 
         if data:
             request.add_data(data)
@@ -294,7 +293,7 @@ class Connection(object):
         """
         return self._open('DELETE', path, headers=headers)
 
-    def put(self, path, headers=None, data=None):
+    def put(self, path, headers=None, data=None, mime_type=None):
         """Perform an HTTP put request.
 
         Args:
@@ -304,9 +303,9 @@ class Connection(object):
         Returns:
             A Response object.
         """
-        return self._open('PUT', path, headers=headers, data=data)
+        return self._open('PUT', path, headers=headers, data=data, mime_type=mime_type)
 
-    def post(self, path, headers=None, data=None):
+    def post(self, path, headers=None, data=None, mime_type=None):
         """Perform an HTTP post request.
 
         Args:
@@ -316,7 +315,7 @@ class Connection(object):
         Returns:
             A Response object.
         """
-        return self._open('POST', path, headers=headers, data=data)
+        return self._open('POST', path, headers=headers, data=data, mime_type=mime_type)
 
     def head(self, path, headers=None):
         """Perform an HTTP put request.

@@ -96,6 +96,8 @@ class UsersController < ApplicationController
           format.json  { render :json => @user }
           format.xml  { render :xml => @user }
           format.jpeg { render :text => @user.avatar.get_data() }
+          format.jpg { render :text => @user.avatar.get_data() }
+          format.jpe { render :text => @user.avatar.get_data() }
           format.gif { render :text => @user.avatar.get_data() }
           format.png { render :text => @user.avatar.get_data() }
           format.svg { render :text => @user.avatar.get_data() }
@@ -115,7 +117,7 @@ class UsersController < ApplicationController
     else
       file = request.body
       file_body = file.read
-      file_mime_type = request.env['Content-Type']
+      file_mime_type = request.env['CONTENT_TYPE']
       file_original_name = params['original_filename']
     end
 
@@ -129,6 +131,8 @@ class UsersController < ApplicationController
         format.json  { head :ok }
         format.xml  { head :ok }
         format.jpeg { head :ok }
+        format.jpg { head :ok }
+        format.jpe { head :ok }
         format.gif { head :ok }
         format.png { head :ok }
         format.svg { head :ok }
@@ -136,30 +140,18 @@ class UsersController < ApplicationController
         format.html { render :action => "avatar", :id => @user.id }
         format.json	{ render :json => @bin.errors, :status => :unprocessable_entity }
         format.xml	{ render :xml => @bin.errors, :status => :unprocessable_entity }
+        format.jpeg { head :error }
+        format.jpg { head :error }
+        format.jpe { head :error }
+        format.gif { head :error }
+        format.png { head :error }
+        format.svg { head :error }
       end
     end
   end
 
   def background
-    @user = User.find(params[:id])
-
-    return if request.get?
-
-    @bin = Bin.existing_or_new(@user, params['file'], params['original_path'], 'background')
-
-    # Save the file and user
-    respond_to do |format|
-      if @bin.errors.length == 0 && @bin.save && @user.update_attributes(:background_id => @bin.id)
-        flash[:notice] = "The background was successfully saved."
-        format.html { redirect_to(:action => "background", :id => @user.id) }
-        format.json  { head :ok }
-        format.xml  { head :ok }
-      else
-        format.html { render :action => "background", :id => @user.id }
-        format.json	{ render :json => @bin.errors, :status => :unprocessable_entity }
-        format.xml	{ render :xml => @bin.errors, :status => :unprocessable_entity }
-      end
-    end
+    # FIXME: Update this to work just like the avatar
   end
 
   def login

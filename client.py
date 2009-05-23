@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import dbus, gobject, dbus.glib
-import base64, time, decimal
-import sys, os, threading, traceback
+import base64, time, decimal, mimetypes
+import sys, os, threading, traceback, commands
 import ctypes, pynotify, pyinotify
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
@@ -11,6 +11,9 @@ from pyactiveresource import connection
 
 # Move the path to the location of the current file
 os.chdir(os.sys.path[0])
+
+# Initialize the mime types
+mimetypes.init()
 
 # Change the name of this process to spacepony
 try:
@@ -728,12 +731,12 @@ class Syncer(threading.Thread):
 		while not self._stopevent.isSet():
 			try:
 				if needs_first_sync:
-					#self.__first_sync_pidgin()
-					#self.__first_sync_tomboy()
+					self.__first_sync_pidgin()
+					self.__first_sync_tomboy()
 					needs_first_sync = False
 				else:
-					#self.__normal_sync_pidgin()
-					#self.__normal_sync_tomboy()
+					self.__normal_sync_pidgin()
+					self.__normal_sync_tomboy()
 					pass
 				time.sleep(5)
 
@@ -831,15 +834,23 @@ class UserFileSyncer(object):
 
 		def _save_avatar(self, event):
 			if not self._file_we_want(event.name): return
-			print "new: " + event.name
 
-			f = open(self.parent.path + event.name, 'rb')
+			# Read the file into a string
+			original_filename = self.parent.path + event.name
+			f = open(original_filename, 'rb')
 			file_data = f.read()
 			f.close()
 
-			#User.post('avatar', base64.b64encode(file_data), enctype="multipart/form-data", id=user.id, original_path=self.parent.path)
-			#User.post('avatar', "da body", enctype="multipart/form-data", id=user.id, original_path=self.parent.path)
-			User.post('avatar', "I post pie", id=user.id, original_path=self.parent.path)
+			# Get the file mime type and extention
+			mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"")
+			extention = mimetypes.guess_extension(mime_type).lstrip('.')
+
+			# Update the avatar
+			User.post('avatar/' + str(user.id), 
+						body=file_data, 
+						extension=extention, 
+						mime_type=mime_type, 
+						original_filename=original_filename)
 
 	def __init__(self):
 		self.files = []
@@ -881,12 +892,6 @@ except connection.ResourceInvalid, err:
 	for error in util.xml_to_dict(err.response.body)['error']:
 		print "    " + error
 	exit()
-
-f = open('/home/matt/.face', 'rb')
-file_data = f.read()
-f.close()
-User.post('avatar/1', body=file_data, format_extension='jpeg', original_filename='/home/matt/.face')
-exit()
 
 # Get the user from the server
 user = User(User.get('get_logged_in_user'))

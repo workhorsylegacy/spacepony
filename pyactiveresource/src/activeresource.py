@@ -568,7 +568,7 @@ class ActiveResource(object):
                 'query': cls._query_string(query_options)}
 
     @classmethod
-    def _custom_method_collection_url(cls, method_name, options, format_extension=None):
+    def _custom_method_collection_url(cls, method_name, options, extension=None):
         """Get the collection path for this resource type.
 
         Args:
@@ -583,12 +583,12 @@ class ActiveResource(object):
             {'prefix': cls._prefix(prefix_options),
              'plural': cls._plural,
              'method_name': method_name,
-             'format': format_extension or cls.format.extension,
+             'format': extension or cls.format.extension,
              'query': cls._query_string(query_options)})
         return path
 
     @classmethod
-    def _class_get(cls, method_name, format_extension=None, **kwargs):
+    def _class_get(cls, method_name, extension=None, mime_type=None, **kwargs):
         """Get a nested resource or resources.
 
         Args:
@@ -597,11 +597,11 @@ class ActiveResource(object):
         Returns:
             A dictionary representing the returned data.
         """
-        url = cls._custom_method_collection_url(method_name, kwargs, format_extension)
+        url = cls._custom_method_collection_url(method_name, kwargs, extension)
         return cls.connection.get(url, cls.headers)
 
     @classmethod
-    def _class_post(cls, method_name, body='', format_extension=None, **kwargs):
+    def _class_post(cls, method_name, body='', extension=None, mime_type=None, **kwargs):
         """Get a nested resource or resources.
 
         Args:
@@ -611,11 +611,11 @@ class ActiveResource(object):
         Returns:
             A connection.Response object.
         """
-        url = cls._custom_method_collection_url(method_name, kwargs, format_extension)
-        return cls.connection.post(url, cls.headers, body)
+        url = cls._custom_method_collection_url(method_name, kwargs, extension)
+        return cls.connection.post(url, cls.headers, body, mime_type)
 
     @classmethod
-    def _class_put(cls, method_name, body='', format_extension=None, **kwargs):
+    def _class_put(cls, method_name, body='', extension=None, mime_type=None, **kwargs):
         """Get a nested resource or resources.
 
         Args:
@@ -625,11 +625,11 @@ class ActiveResource(object):
         Returns:
             A connection.Response object.
         """
-        url = cls._custom_method_collection_url(method_name, kwargs, format_extension)
-        return cls.connection.put(url, cls.headers, body)
+        url = cls._custom_method_collection_url(method_name, kwargs, extension)
+        return cls.connection.put(url, cls.headers, body, mime_type)
 
     @classmethod
-    def _class_delete(cls, method_name, format_extension=None, **kwargs):
+    def _class_delete(cls, method_name, extension=None, **kwargs):
         """Get a nested resource or resources.
 
         Args:
@@ -638,7 +638,7 @@ class ActiveResource(object):
         Returns:
             A connection.Response object.
         """
-        url = cls._custom_method_collection_url(method_name, kwargs, format_extension)
+        url = cls._custom_method_collection_url(method_name, kwargs, extension)
         return cls.connection.delete(url, cls.headers)
 
     @classmethod

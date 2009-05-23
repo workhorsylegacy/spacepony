@@ -239,10 +239,20 @@ class Connection(object):
             header_string = '\n'.join([':'.join((k, v)) for k, v in
                                        request.headers.items()])
             self.log.debug('request-headers:%s', header_string)
+
+        # Set the content type. Use the formats or fall back on the default
+        #if data and self.format.is_this_format(data):
+        #    request.add_header('Content-Type', self.format.mime_type)
+        #else:
+        #    request.add_header('Content-Type', 'image/jpeg')
+        request.add_header('Content-Type', 'image/jpeg')
+
         if data:
-            request.add_header('Content-Type', self.format.mime_type)
             request.add_data(data)
             self.log.debug('request-body:%s', request.get_data())
+        elif method == 'POST' or method == 'PUT':
+            request.add_header('Content-Length', 0)
+
         if self.timeout:
             # This is lame, and urllib2 sucks for not giving a good way to do this
             old_timeout = socket.getdefaulttimeout()

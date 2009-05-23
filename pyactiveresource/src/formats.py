@@ -22,7 +22,7 @@ class XMLFormat(Base):
     
     extension = 'xml'
     mime_type = 'application/xml'
-    
+
     @staticmethod
     def decode(resource_string):
         """Convert a resource string to a dictionary."""

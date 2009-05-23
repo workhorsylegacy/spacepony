@@ -5,9 +5,9 @@ ActionController::Routing::Routes.draw do |map|
                                                    :get_meta => :get }
   map.resources :users, :collection => { :ensure_user_exists =>:get, 
                                          :get_logged_in_user => :get, 
-                                         :login => :get, 
-                                         :background => :get, 
-                                         :avatar => :get }
+                                         :login => :get }, 
+                        :member => { :background => :any, 
+                                         :avatar => :any }
   map.resources :home
 
   map.root :controller => 'home'

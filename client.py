@@ -87,6 +87,7 @@ tomboy_notes = {}
 user = None
 newest_tomboy_timestamp = None
 newest_pidgin_timestamp = None
+newest_avatar_timestamp = None
 needs_first_sync = True
 ignore_tomboy_event = {}
 ignore_pidgin_event = {}
@@ -371,6 +372,36 @@ def get_newest_pidgin_timestamp():
 		f.close()
 
 	return newest_pidgin_timestamp
+
+
+
+def set_newest_avatar_timestamp(value):
+	global newest_avatar_timestamp
+
+	if value == None or value <= newest_avatar_timestamp:
+		return
+
+	newest_avatar_timestamp = value
+	f = open('newest_avatar_timestamp', 'w')
+	f.write(str(newest_avatar_timestamp))
+	f.close()
+
+def get_newest_avatar_timestamp():
+	global newest_avatar_timestamp
+
+	if newest_avatar_timestamp == None and os.path.exists('newest_avatar_timestamp'):
+		f = open('newest_avatar_timestamp', 'r')
+		try:
+			value = decimal.Decimal(f.read())
+			if value != '':
+				newest_avatar_timestamp = value
+		except:
+			pass
+		f.close()
+
+	return newest_avatar_timestamp
+
+
 
 """
 Syncs notes to and from the server
@@ -697,12 +728,12 @@ class Syncer(threading.Thread):
 		while not self._stopevent.isSet():
 			try:
 				if needs_first_sync:
-					self.__first_sync_pidgin()
-					self.__first_sync_tomboy()
+					#self.__first_sync_pidgin()
+					#self.__first_sync_tomboy()
 					needs_first_sync = False
 				else:
-					self.__normal_sync_pidgin()
-					self.__normal_sync_tomboy()
+					#self.__normal_sync_pidgin()
+					#self.__normal_sync_tomboy()
 					pass
 				time.sleep(5)
 
@@ -771,24 +802,21 @@ bus.add_signal_receiver(onNoteDeleted,
 						signal_name = "NoteDeleted")
 
 class UserFileSyncer(object):
-	def __init__():
-		self.files = []
-
 	class EventHandler(pyinotify.ProcessEvent):
-		def __init__(parent):
+		def __init__(self, parent):
 			self.parent = parent
-
-		# update
-		def process_IN_MODIFY(self, event):
-			if not self._file_we_want(event.name): return
 
 		# new
 		def process_IN_CREATE(self, event):
-			if not self._file_we_want(event.name): return
+			self._save_avatar(event)
 
 		# new
 		def process_IN_MOVED_TO(self, event):
-			if not self._file_we_want(event.name): return
+			self._save_avatar(event)
+
+		# update
+		def process_IN_MODIFY(self, event):
+			self._save_avatar(event)
 
 		# destroy
 		def process_IN_DELETE(self, event):
@@ -798,13 +826,28 @@ class UserFileSyncer(object):
 		def process_IN_MOVED_FROM(self, event):
 			if not self._file_we_want(event.name): return
 
-		def _file_we_want(file_name):
+		def _file_we_want(self, file_name):
 			return self.parent.get_files().count(file_name) > 0
 
-	def get_files():
+		def _save_avatar(self, event):
+			if not self._file_we_want(event.name): return
+			print "new: " + event.name
+
+			f = open(self.parent.path + event.name, 'rb')
+			file_data = f.read()
+			f.close()
+
+			#User.post('avatar', base64.b64encode(file_data), enctype="multipart/form-data", id=user.id, original_path=self.parent.path)
+			#User.post('avatar', "da body", enctype="multipart/form-data", id=user.id, original_path=self.parent.path)
+			User.post('avatar', "I post pie", id=user.id, original_path=self.parent.path)
+
+	def __init__(self):
+		self.files = []
+
+	def get_files(self):
 		return self.files
 
-	def start():
+	def start(self):
 		# Get the files to watch
 		self.path = '/home/matt/'
 		self.files = ['.face']
@@ -812,13 +855,13 @@ class UserFileSyncer(object):
 		# only watch those events
 		mask = pyinotify.EventsCodes.IN_MODIFY | \
 				pyinotify.EventsCodes.IN_DELETE | \
-				pyinotify.EventsCodes.IN_CREATE | 
+				pyinotify.EventsCodes.IN_CREATE | \
 				pyinotify.EventsCodes.IN_MOVED_FROM | \
 				pyinotify.EventsCodes.IN_MOVED_TO
 
 		# Start watching those files
 		wm = pyinotify.WatchManager()
-		notifier = pyinotify.ThreadedNotifier(wm, EventHandler())
+		notifier = pyinotify.ThreadedNotifier(wm, UserFileSyncer.EventHandler(self))
 		notifier.start()
 		wm.add_watch(self.path, mask)
 
@@ -838,6 +881,12 @@ except connection.ResourceInvalid, err:
 	for error in util.xml_to_dict(err.response.body)['error']:
 		print "    " + error
 	exit()
+
+f = open('/home/matt/.face', 'rb')
+file_data = f.read()
+f.close()
+User.post('avatar/1', body=file_data, format_extension='jpeg', original_filename='/home/matt/.face')
+exit()
 
 # Get the user from the server
 user = User(User.get('get_logged_in_user'))

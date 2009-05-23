@@ -1,7 +1,8 @@
 class UsersController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
-  before_filter :authenticate, :except => [ 'ensure_user_exists', 'new', 'create', 'login' ]
+  # FIXME: Authentication should be on for avatar and background
+  before_filter :authenticate, :except => [ 'ensure_user_exists', 'new', 'create', 'login', 'avatar', 'background' ]
 
   # GET /users/1
   # GET /users/1.json
@@ -83,12 +84,42 @@ class UsersController < ApplicationController
     end
   end
 
+  # POST /users/1/avatar
+  # POST /users/1/avatar.html
+  # POST /users/1/avatar.jpeg
   def avatar
     @user = User.find(params[:id])
 
-    return if request.get?
+    if request.get?
+      respond_to do |format|
+          format.html # avatar.html.erb
+          format.json  { render :json => @user }
+          format.xml  { render :xml => @user }
+          format.jpeg { render :text => @user.avatar.get_data() }
+          format.gif { render :text => @user.avatar.get_data() }
+          format.png { render :text => @user.avatar.get_data() }
+          format.svg { render :text => @user.avatar.get_data() }
+      end
+    end
 
-    @bin = Bin.existing_or_new(@user, params['file'], params['original_path'], 'avatar')
+    return unless request.post?
+
+    file_body, file_mime_type, file_original_name = nil, nil, nil
+    # Get webform posted file
+    if params['file'] != nil && params['file'] != ""
+      file = params['file']
+      file_body = file.read
+      file_mime_type = file.content_type.chomp.downcase
+      file_original_name = params['original_path'] + file.original_filename
+    # Get REST posted file
+    else
+      file = request.body
+      file_body = file.read
+      file_mime_type = request.env['Content-Type']
+      file_original_name = params['original_filename']
+    end
+
+    @bin = Bin.existing_or_new(@user, file_body, file_mime_type, file_original_name, 'avatar')
 
     # Save the file and user
     respond_to do |format|
@@ -97,6 +128,10 @@ class UsersController < ApplicationController
         format.html { redirect_to(:action => "avatar", :id => @user.id) }
         format.json  { head :ok }
         format.xml  { head :ok }
+        format.jpeg { head :ok }
+        format.gif { head :ok }
+        format.png { head :ok }
+        format.svg { head :ok }
       else
         format.html { render :action => "avatar", :id => @user.id }
         format.json	{ render :json => @bin.errors, :status => :unprocessable_entity }

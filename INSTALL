@@ -44,6 +44,9 @@ cd tomboy-0.15.0
 make
 sudo make install
 
+# Run updatedb so dbus can find the tomboy service file
+sudo updatedb
+
 # get the code
 sudo apt-get install bzr python-pyinotify python-notify
 cd ~

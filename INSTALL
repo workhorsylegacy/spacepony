@@ -6,6 +6,9 @@ cd ~
 bzr branch lp:spacepony
 cd spacepony/server
 
+# Update the database configuration to have the user and password
+gedit config/database.yml
+
 # setup the server
 sudo apt-get install mysql-server mysql-client ruby rake rubygems rails
 sudo gem install rails
@@ -42,7 +45,7 @@ make
 sudo make install
 
 # get the code
-sudo apt-get instal bzr python-pyinotify python-notify
+sudo apt-get install bzr python-pyinotify python-notify
 cd ~
 bzr branch lp:spacepony
 cd spacepony

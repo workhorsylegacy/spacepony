@@ -63,15 +63,25 @@ class ApplicationController < ActionController::Base
     return true
   end
 
-  def logg_in(username, password)
+  def log_in(username, password)
     result = valid_login?(username, password)
-    session[:user_id] = User.find_by_name(username).id if result
+    return result unless result
 
+    user =  User.find_by_name(username)
+    session[:user_id] = user.id
+    cookies[:user_id] = user.id.to_s
+    cookies['user_name'] = user.name
+    cookies['user_greeting'] = 'Howdy'
     result
   end
 
   def is_logged_in?
     session[:user_id] != nil
+  end
+
+  def was_request_from_this_site?(request)
+    (request.env_table['HTTP_REFERER'] && 
+    request.env_table['HTTP_REFERER'].index("http://" + request.env_table['HTTP_HOST']) == 0)
   end
 
   def get_originating_user_id

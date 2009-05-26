@@ -157,10 +157,29 @@ class UsersController < ApplicationController
   def login
     return unless request.post?
 
-    if logg_in(params['user_name'], params['password'])
+    if log_in(params['user_name'], params['password'])
       redirect_to(:controller => :users, :action => 'show', :id => session[:user_id])
     else
       flash[:notice] = 'Invalid user name or password.'
+    end
+  end
+
+  def logout
+    # Remove the sessions and cookies.
+    session[:user_id] = nil
+    cookies[:user_id] = nil
+    cookies[:user_name] = nil
+    cookies[:user_greeting] = nil
+    flash[:notice] = "You are now logged out."
+
+   # Try to go to the previous page. If there is none, or 
+   # it is from a different site, go home.
+    from_same_site = was_request_from_this_site?(request)
+
+    if from_same_site
+      redirect_to(request.env_table['HTTP_REFERER'])
+    else
+      redirect_to :controller => 'home', :action => 'index'
     end
   end
 

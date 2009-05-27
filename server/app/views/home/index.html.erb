@@ -1,11 +1,115 @@
 <h1>Space Pony</h1>
 
 <p>
-Space Pony makes it easy to sync your desktop settings to the web and other machines. 
-We plan to at least support pidgin accounts, tomboy notes, rhythmbox 
-settings, and firefox settings.
+Space Pony makes it easy to sync your Linux desktop settings to the web and other machines.
 </p>
 
+<p>
 <%= link_to 'Create a new user', new_user_path %>
  or 
 <%= link_to 'login', :controller => 'users', :action => 'login' %>
+</p>
+
+<div>
+	<h2>Features</h2>
+	<table cellpadding=8 rules=GROUPS frame=BOX>
+		<thead>
+			<tr>
+				<th>Program</th> <th>Status</th> <th>Sync Method</th> <th>Synced Data</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><a href="http://projects.gnome.org/tomboy/">Tomboy</a></td>
+				<td>Working (need 0.15 and patch)</td>
+				<td>dbus</td>
+				<td>notes, notebooks</td>
+			</tr>
+			<tr>
+				<td><a href="http://www.pidgin.im/">Pidgin</a></td>
+				<td>Working</td>
+				<td>dbus</td>
+				<td>accounts, passwords, status, message, avatar</td>
+			</tr>
+			<tr>
+				<td><a href="http://www.gnome.org/">Gnome Avatar</a></td>
+				<td>Upload working, Download started</td>
+				<td>inotify</td>
+				<td>file, path</td>
+			</tr>
+			<tr>
+				<td><a href="http://www.gnome.org/">Gnome Wallpaper</a></td>
+				<td>Just starting</td>
+				<td>gconf</td>
+				<td>file, path</td>
+			</tr>
+			<tr>
+				<td><a href="http://www.gnome.org/">Gnome Theme</a></td>
+				<td>Researched</td>
+				<td>gconf</td>
+				<td>controls, colors, window borders, icons, pointer, interface, and fonts</td>
+			</tr>
+			<tr>
+				<td><a href="http://www.mozillamessaging.com/en-US/thunderbird/">Thunderbird</a></td>
+				<td>Researched</td>
+				<td>plugin to dbus</td>
+				<td>accounts, passwords</td>
+			</tr>
+			<tr>
+				<td><a href="http://www.mozilla.com/en-US/firefox/firefox.html">Firefox</a></td>
+				<td>Researched</td>
+				<td>plugin to dbus</td>
+				<td>bookmarks, passwords</td>
+			</tr>
+			<tr>
+				<td><a href="http://projects.gnome.org/rhythmbox/">Rhythmbox</a></td>
+				<td>Researching (missing much dbus functionality)</td>
+				<td>dbus</td>
+				<td>playlists, podcasts, music files</td>
+			</tr>
+			<tr>
+				<td><a href="http://banshee-project.org/">Banshee</a></td>
+				<td>Researching</td>
+				<td>dbus</td> 
+				<td>playlists, podcasts, music files</td>
+			</tr>
+			<tr>
+				<td><a href="http://gpodder.org/">gPodder</a></td>
+				<td>unknown</td>
+				<td>unknown</td>
+				<td>podcasts, listen status, podcast files</td>
+			</tr>
+			<tr>
+				<td><a href="http://bazaar-vcs.org/">Bazaar</a></td>
+				<td>Unknown</td>
+				<td>unknown</td>
+				<td>whoami</td>
+			</tr>
+			<tr>
+				<td><a href="http://git-scm.com/">Git</a></td>
+				<td>Unknown</td>
+				<td>unknown</td>
+				<td>git-repo-config</td>
+			</tr>
+			<tr>
+				<td><a href="http://projects.gnome.org/evolution/">Evolution</a></td>
+				<td>Unknown</td>
+				<td>Unknown</td>
+				<td>accounts, passwords</td>
+			</tr>
+			<tr>
+				<td><a href="http://f-spot.org">F-Spot</a></td>
+				<td>Unknown</td>
+				<td>dbus</td>
+				<td>pictures, groups</td>
+			</tr>
+			<tr>
+				<td>Folders</td>
+				<td>Researching</td>
+				<td>inotify</td>
+				<td>files and folders</td>
+			</tr>
+		</tbody>
+	</table>
+</div>
+

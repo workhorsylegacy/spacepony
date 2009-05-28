@@ -50,7 +50,7 @@ class ApplicationController < ActionController::Base
     return true if is_logged_in?
 
     authenticate_or_request_with_http_basic do |username, password|
-      return logg_in(username, password)
+      return log_in(username, password)
     end
   end
 

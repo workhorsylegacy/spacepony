@@ -22,6 +22,7 @@ try:
 except:
 	pass
 
+
 USERNAME = "mattjones"
 PASSWORD = "password"
 EMAIL = "mattjones@workhorsy.org"
@@ -545,10 +546,17 @@ class TomboySync(BaseSync):
 			print "no note with guid: " + note_guid
 			return
 
+		# Skip the event if the content has not changed
+		new_body = str(self._tomboy.GetNoteCompleteXml(note))
+		old_body = base64.b64decode(self._notes[note_guid].body)
+		if new_body.split('<note-content')[1].split('</note-content>')[0] == \
+			old_body.split('<note-content')[1].split('</note-content>')[0]:
+			return
+
 		# Save the changes to the note
 		tomboy_note = self._notes[note_guid]
 		tomboy_note.name = str(self._tomboy.GetNoteTitle(note))
-		tomboy_note.body = base64.b64encode(str(self._tomboy.GetNoteCompleteXml(note)))
+		tomboy_note.body = base64.b64encode(new_body)
 		tags = []
 		for tag in self._tomboy.GetTagsForNote(note):
 			tags.append(str(tag))

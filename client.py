@@ -255,8 +255,8 @@ class PidginSync(BaseSync):
 			if str(err) == "HTTP Error 404: Not Found":
 				self._accounts.pop(account_guid)
 
-		print "Server: Changed Pidgin status for account " + pidgin_account.name + " to '" + pidgin_account.status + \
-			"' with the message '" + pidgin_account.message + "'."
+		print "Server: Changed Pidgin status for account " + pidgin_account.name + " to '" + (pidgin_account.status or '') + \
+			"' with the message '" + (pidgin_account.message or '') + "'."
 
 	def remove_account(self, account_id):
 		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)

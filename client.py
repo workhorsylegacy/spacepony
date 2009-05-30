@@ -39,6 +39,9 @@ class PidginAccount(ActiveResource):
 class TomboyNote(ActiveResource):
 	_site = SERVER_ADDRESS
 
+class Bin(ActiveResource):
+	_site = SERVER_ADDRESS
+
 # Make it so the dbus threads and python threads work at the same time
 gobject.threads_init()
 dbus.glib.init_threads()
@@ -49,6 +52,10 @@ if not pynotify.init("Sync notification"):
 	sys.exit(1)
 
 class BaseSync(object):
+	def __init__(self, app_name):
+		self._app_name = app_name
+		self._newest_timestamp = 0
+
 	def set_newest_timestamp(self, value):
 		if value == None or value <= self._newest_timestamp:
 			return
@@ -71,80 +78,137 @@ class BaseSync(object):
 
 		return self._newest_timestamp
 
-class UserFileSyncer(object):
+class UserFileSyncer(BaseSync):
 	class EventHandler(pyinotify.ProcessEvent):
-		def __init__(self, parent, user):
-			self.parent = parent
-			self._user = user
+		def __init__(self, parent):
+			self._parent = parent
 
 		# new
 		def process_IN_CREATE(self, event):
-			self._save_avatar(event)
+			self._parent._save_avatar(event.name)
 
 		# new
 		def process_IN_MOVED_TO(self, event):
-			self._save_avatar(event)
+			self._parent._save_avatar(event.name)
 
 		# update
 		def process_IN_MODIFY(self, event):
-			self._save_avatar(event)
+			self._parent._save_avatar(event.name)
 
 		# destroy
 		def process_IN_DELETE(self, event):
-			if not self._file_we_want(event.name): return
+			if not self._parent._file_we_want(event.name): return
 
 		# destroy
 		def process_IN_MOVED_FROM(self, event):
-			if not self._file_we_want(event.name): return
-
-		def _file_we_want(self, file_name):
-			return self.parent.get_files().count(file_name) > 0
-
-		def _save_avatar(self, event):
-			if not self._file_we_want(event.name): return
-
-			# Read the file into a string
-			original_filename = self.parent.path + event.name
-			print "Server: File saved: " + original_filename
-			f = open(original_filename, 'rb')
-			file_data = f.read()
-			f.close()
-
-			# Get the file mime type and extention
-			mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"")
-			extention = mimetypes.guess_extension(mime_type).lstrip('.')
-
-			# Update the avatar
-			User.post('avatar/' + str(self._user.id), 
-						body=file_data, 
-						extension=extention, 
-						mime_type=mime_type, 
-						original_filename=original_filename)
+			if not self._parent._file_we_want(event.name): return
 
 	def __init__(self, user):
-		self.files = []
+		super(UserFileSyncer, self).__init__('avatar')
+
+		# Get the files to watch
+		self._path = '/home/matt/'
+		self._files = { 'avatar' : '.face'}
+
+		self._avatar_syncer = BaseSync('avatar')
+		self._background_syncer = BaseSync('background')
+
 		self._user = user
 
 	def get_files(self):
-		return self.files
+		return self._files.values()
+
+	def _file_we_want(self, file_name):
+		return self.get_files().count(file_name) > 0
+
+	def _save_avatar(self, filename):
+		if not self._file_we_want(filename): return
+
+		# Read the file into a string
+		original_filename = self._path + filename
+		print "Server: File saved: " + original_filename
+		f = open(original_filename, 'rb')
+		file_data = f.read()
+		f.close()
+
+		# Get the file mime type and extention
+		mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"")
+		extention = mimetypes.guess_extension(mime_type).lstrip('.')
+
+		# Update the avatar
+		User.post('avatar/' + str(self._user.id), 
+					body=file_data, 
+					extension=extention, 
+					mime_type=mime_type, 
+					original_filename=original_filename)
+
+		# Update the avatar timestamp
+		avatar = Bin(User.get(str(self._user.id) + '/avatar'))
+		self._user.avatar_id = avatar.id
+		self._avatar_syncer.set_newest_timestamp(avatar.updated_timestamp)
 
 	def start(self):
-		# Get the files to watch
-		self.path = '/home/matt/'
-		self.files = ['.face']
-
-		# only watch those events
+		# Only get CRUD events
 		mask = pyinotify.EventsCodes.IN_MODIFY | \
 				pyinotify.EventsCodes.IN_DELETE | \
 				pyinotify.EventsCodes.IN_CREATE | \
 				pyinotify.EventsCodes.IN_MOVED_FROM | \
 				pyinotify.EventsCodes.IN_MOVED_TO
 
-		# Start watching those files
+		# Start watching the files
 		wm = pyinotify.WatchManager()
-		notifier = pyinotify.ThreadedNotifier(wm, UserFileSyncer.EventHandler(self, self._user))
+		notifier = pyinotify.ThreadedNotifier(wm, UserFileSyncer.EventHandler(self))
 		notifier.start()
-		wm.add_watch(self.path, mask)
+		wm.add_watch(self._path, mask)
+
+	def first_sync(self):
+		for file_type, file_name in self._files.iteritems():
+			whole_file_name = self._path + file_name
+
+			if file_type != 'avatar':
+				break
+
+			# FIXME ActiveResource should return None when you do Bin(None)
+			avatar = User.get(str(self._user.id) + '/avatar')
+			if avatar: avatar = Bin(avatar)
+
+			# is on server and client
+			if avatar and \
+				avatar.file_name == whole_file_name and \
+				os.path.exists(whole_file_name):
+
+				# but the client's is newer
+				if os.path.getmtime(whole_file_name) > avatar.updated_timestamp:
+					self._save_avatar(file_name)
+					print "First Sync: Avatar added(updated from client): " + avatar.file_name
+				# but the server's is newer
+				else:
+					avatar = Bin(User.get(str(self._user.id) + '/avatar'))
+
+					data = User.get(str(self._user.id) + '/avatar', 
+													extension='jpeg', 
+													mime_type='image/jpeg')
+					f = open(avatar.file_name, 'wb')
+					f.write(data)
+					f.close()
+					print "First Sync: Avatar added(updated from server): " + avatar.file_name
+
+			# is just on the client
+			if avatar == None and os.path.exists(whole_file_name):
+				self._save_avatar(file_name)
+				print "First Sync: Avatar added(new from client): " + file_name
+
+			# is just on the server
+			if avatar != None and not os.path.exists(whole_file_name):
+				avatar = Bin(User.get(str(self._user.id) + '/avatar'))
+
+				data = User.get(str(self._user.id) + '/avatar', 
+												extension='jpeg', 
+												mime_type='image/jpeg')
+				f = open(avatar.file_name, 'wb')
+				f.write(data)
+				f.close()
+				print "First Sync: Avatar added(new from server): " + avatar.file_name
 
 class PidginSync(BaseSync):
 	# Specify status ID values
@@ -158,10 +222,10 @@ class PidginSync(BaseSync):
 	STATUS_TUNE = 8
 
 	def __init__(self, bus, user):
+		super(PidginSync, self).__init__('pidgin')
 		self._newest_timestamp = None
 		self._ignore_event = {}
 		self._accounts = {}
-		self._app_name = "pidgin"
 		self._user = user
 
 		#(success, status) = bus.start_service_by_name('im.pidgin.purple.PurpleService')
@@ -464,10 +528,10 @@ class PidginSync(BaseSync):
 
 class TomboySync(BaseSync):
 	def __init__(self, bus, user):
+		super(TomboySync, self).__init__('tomboy')
 		self._newest_timestamp = None
 		self._ignore_event = {}
 		self._notes = {}
-		self._app_name = "tomboy"
 		self._user = user
 
 		(success, status) = bus.start_service_by_name('org.gnome.Tomboy')
@@ -786,10 +850,12 @@ class Syncer(threading.Thread):
 				if self._needs_first_sync:
 					self._pidgin_syncer.first_sync()
 					self._tomboy_syncer.first_sync()
+					self._file_syncer.first_sync()
 					self._needs_first_sync = False
 				else:
 					self._pidgin_syncer.normal_sync()
 					self._tomboy_syncer.normal_sync()
+					pass
 				time.sleep(5)
 
 			except Exception:

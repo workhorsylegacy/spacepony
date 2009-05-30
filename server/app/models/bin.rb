@@ -68,5 +68,9 @@ class Bin < ActiveRecord::Base
 			f.write(self.body)
 		end
 	end
+
+	def self.to_nil_xml
+		"<bin nil=\"true\"></bin>"
+	end
 end
 

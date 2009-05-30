@@ -598,7 +598,7 @@ class ActiveResource(object):
             A dictionary representing the returned data.
         """
         url = cls._custom_method_collection_url(method_name, kwargs, extension)
-        return cls.connection.get(url, cls.headers)
+        return cls.connection.get(url, cls.headers, mime_type)
 
     @classmethod
     def _class_post(cls, method_name, body='', extension=None, mime_type=None, **kwargs):

@@ -271,7 +271,7 @@ class Connection(object):
                       len(response.body))
         return response
 
-    def get(self, path, headers=None):
+    def get(self, path, headers=None, mime_type=None):
         """Perform an HTTP get request.
 
         Args:
@@ -280,7 +280,12 @@ class Connection(object):
         Returns:
             A dictionary representing a resource.
         """
-        return self.format.decode(self._open('GET', path, headers=headers).body)
+        body = self._open('GET', path, headers=headers).body
+
+        if mime_type == None or mime_type == formats.XMLFormat.mime_type:
+            return self.format.decode(body)
+        else:
+            return body
 
     def delete(self, path, headers=None):
         """Perform an HTTP delete request.

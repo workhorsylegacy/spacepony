@@ -93,8 +93,8 @@ class UsersController < ApplicationController
     if request.get?
       respond_to do |format|
           format.html # avatar.html.erb
-          format.json  { render :json => @user }
-          format.xml  { render :xml => @user }
+          format.json  { render :json => @user.avatar }
+          format.xml  { render :xml => @user.avatar || Bin.to_nil_xml }
           format.jpeg { render :text => @user.avatar.get_data() }
           format.jpg { render :text => @user.avatar.get_data() }
           format.jpe { render :text => @user.avatar.get_data() }

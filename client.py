@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import dbus, gobject, dbus.glib
+import dbus, gobject, dbus.glib, gconf
 import base64, time, decimal, mimetypes
 import sys, os, threading, traceback, commands
 import ctypes, pynotify, pyinotify
@@ -78,7 +78,125 @@ class BaseSync(object):
 
 		return self._newest_timestamp
 
-class FileWatchSync(BaseSync):
+class GConfFileSync(BaseSync):
+	def __init__(self, user):
+		super(GConfFileSync, self).__init__('background')
+		self._user = user
+
+	def start(self):
+		self._gconf_client = gconf.client_get_default()
+		self._gconf_client.add_dir('/', gconf.CLIENT_PRELOAD_NONE)
+		self._gconf_client.notify_add('/', self.__on_gconf_key_changed)
+
+	def __save_background(self, filename):
+		# Read the file into a string
+		print "Server: File saved: " + filename
+		f = open(filename, 'rb')
+		file_data = f.read()
+		f.close()
+
+		# Get the file mime type and extention
+		mime_type = commands.getoutput("file -b -i \"" + filename + "\"")
+		extention = mimetypes.guess_extension(mime_type).lstrip('.')
+
+		# Update the background
+		User.post('background/' + str(self._user.id), 
+					body=file_data, 
+					extension=extention, 
+					mime_type=mime_type, 
+					original_filename=filename)
+
+		# Update the background timestamp
+		background = Bin(User.get(str(self._user.id) + '/background'))
+		self._user.background_id = background.id
+		self.set_newest_timestamp(background.updated_timestamp)
+
+	def __on_gconf_key_changed(self, client, id, entry, data):
+		key = entry.key
+
+		if key == "/desktop/gnome/background/picture_filename":
+			value = self.__extract_gconf_value(entry.get_value())
+			self.__save_background(value)
+
+	def __extract_gconf_value(self, gconf_value):
+		if gconf_value == None:
+			return None
+
+		type = gconf_value.type
+		value = None
+		if type == gconf.VALUE_INT:
+			value = gconf_value.get_int()
+		elif type == gconf.VALUE_STRING:
+			value = gconf_value.get_string()
+		elif type == gconf.VALUE_BOOL:
+			value = gconf_value.get_bool()
+		elif type == gconf.VALUE_FLOAT:
+			value = gconf_value.get_float()
+		elif type == gconf.VALUE_LIST:
+			value = []
+			list = gconf_value.get_list()
+			for item in list:
+				value.append(self.__extract_gconf_value(item))
+		elif type == gconf.VALUE_SCHEMA or type == gconf.VALUE_PAIR or \
+			type == gconf.VALUE_INVALID:
+			pass
+		else:
+			raise "gconf value of unknown type " + str(type)
+
+		return value
+
+	def sync(self):
+		whole_file_name = self._gconf_client.get_string('/desktop/gnome/background/picture_filename')
+
+		if self.get_newest_timestamp() == None:
+			self.set_newest_timestamp(os.path.getmtime(whole_file_name))
+
+		# FIXME ActiveResource should return None when you do Bin(None)
+		background = User.get(str(self._user.id) + '/background')
+		if background: background = Bin(background)
+		file_exists = os.path.exists(whole_file_name)
+
+		# is on server and client
+		if background and \
+			background.file_name == whole_file_name and \
+			file_exists:
+
+			# but the client's is newer
+			if self.get_newest_timestamp() > background.updated_timestamp:
+				self.__save_background(whole_file_name)
+				print "First Sync: Background added(updated from client): " + background.file_name
+			# but the server's is newer
+			elif self.get_newest_timestamp() < background.updated_timestamp:
+				background = Bin(User.get(str(self._user.id) + '/background'))
+
+				data = User.get(str(self._user.id) + '/background', 
+												extension='jpeg', 
+												mime_type='image/jpeg')
+				f = open(background.file_name, 'wb')
+				f.write(data)
+				f.close()
+				self._gconf_client.set_string(background.file_name)
+				print "First Sync: Background added(updated from server): " + background.file_name
+
+		# is just on the client
+		elif background == None and file_exists:
+			self.__save_background(whole_file_name)
+			print "First Sync: Background added(new from client): " + whole_file_name
+
+		# is just on the server
+		elif background != None and not file_exists:
+			background = Bin(User.get(str(self._user.id) + '/background'))
+
+			data = User.get(str(self._user.id) + '/background', 
+											extension='jpeg', 
+											mime_type='image/jpeg')
+			f = open(background.file_name, 'wb')
+			f.write(data)
+			f.close()
+			self._gconf_client.set_string(background.file_name)
+			print "First Sync: Background added(new from server): " + background.file_name
+
+class WatchFileSync(BaseSync):
 	class EventHandler(pyinotify.ProcessEvent):
 		def __init__(self, parent):
 			self._parent = parent
@@ -104,14 +222,13 @@ class FileWatchSync(BaseSync):
 			if not self._parent._file_we_want(event.name): return
 
 	def __init__(self, user):
-		super(FileWatchSync, self).__init__('avatar')
+		super(WatchFileSync, self).__init__('avatar')
 
 		# Get the files to watch
 		self._path = '/home/matt/'
 		self._files = { 'avatar' : '.face'}
 
 		self._avatar_syncer = BaseSync('avatar')
-		self._background_syncer = BaseSync('background')
 
 		self._user = user
 
@@ -157,7 +274,7 @@ class FileWatchSync(BaseSync):
 
 		# Start watching the files
 		wm = pyinotify.WatchManager()
-		notifier = pyinotify.ThreadedNotifier(wm, FileWatchSync.EventHandler(self))
+		notifier = pyinotify.ThreadedNotifier(wm, WatchFileSync.EventHandler(self))
 		notifier.start()
 		wm.add_watch(self._path, mask)
 
@@ -841,25 +958,29 @@ class Syncer(threading.Thread):
 
 		self._pidgin_syncer = PidginSync(bus, self._user)
 		self._tomboy_syncer = TomboySync(bus, self._user)
-		self._file_syncer = FileWatchSync(self._user)
+		self._watch_file_syncer = WatchFileSync(self._user)
+		self._gconf_file_syncer = GConfFileSync(self._user)
 
 		self._stopevent = threading.Event()
 		threading.Thread.__init__(self, name='Syncer')
 
 	def run(self):
-		self._file_syncer.start()
+		self._watch_file_syncer.start()
+		self._gconf_file_syncer.start()
 
 		while not self._stopevent.isSet():
 			try:
 				if self._needs_first_sync:
 					self._pidgin_syncer.first_sync()
 					self._tomboy_syncer.first_sync()
-					self._file_syncer.sync()
+					self._watch_file_syncer.sync()
+					self._gconf_file_syncer.sync()
 					self._needs_first_sync = False
 				else:
 					self._pidgin_syncer.normal_sync()
 					self._tomboy_syncer.normal_sync()
-					self._file_syncer.sync()
+					self._watch_file_syncer.sync()
+					self._gconf_file_syncer.sync()
 				time.sleep(5)
 
 			except Exception:

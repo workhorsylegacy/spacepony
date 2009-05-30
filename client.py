@@ -78,7 +78,7 @@ class BaseSync(object):
 
 		return self._newest_timestamp
 
-class UserFileSyncer(BaseSync):
+class FileWatchSync(BaseSync):
 	class EventHandler(pyinotify.ProcessEvent):
 		def __init__(self, parent):
 			self._parent = parent
@@ -104,7 +104,7 @@ class UserFileSyncer(BaseSync):
 			if not self._parent._file_we_want(event.name): return
 
 	def __init__(self, user):
-		super(UserFileSyncer, self).__init__('avatar')
+		super(FileWatchSync, self).__init__('avatar')
 
 		# Get the files to watch
 		self._path = '/home/matt/'
@@ -157,32 +157,36 @@ class UserFileSyncer(BaseSync):
 
 		# Start watching the files
 		wm = pyinotify.WatchManager()
-		notifier = pyinotify.ThreadedNotifier(wm, UserFileSyncer.EventHandler(self))
+		notifier = pyinotify.ThreadedNotifier(wm, FileWatchSync.EventHandler(self))
 		notifier.start()
 		wm.add_watch(self._path, mask)
 
-	def first_sync(self):
+	def sync(self):
 		for file_type, file_name in self._files.iteritems():
 			whole_file_name = self._path + file_name
 
 			if file_type != 'avatar':
 				break
 
+			if self._avatar_syncer.get_newest_timestamp() == None:
+				self._avatar_syncer.set_newest_timestamp(os.path.getmtime(whole_file_name))
+
 			# FIXME ActiveResource should return None when you do Bin(None)
 			avatar = User.get(str(self._user.id) + '/avatar')
 			if avatar: avatar = Bin(avatar)
+			file_exists = os.path.exists(whole_file_name)
 
 			# is on server and client
 			if avatar and \
 				avatar.file_name == whole_file_name and \
-				os.path.exists(whole_file_name):
+				file_exists:
 
 				# but the client's is newer
-				if os.path.getmtime(whole_file_name) > avatar.updated_timestamp:
+				if self._avatar_syncer.get_newest_timestamp() > avatar.updated_timestamp:
 					self._save_avatar(file_name)
 					print "First Sync: Avatar added(updated from client): " + avatar.file_name
 				# but the server's is newer
-				else:
+				elif self._avatar_syncer.get_newest_timestamp() < avatar.updated_timestamp:
 					avatar = Bin(User.get(str(self._user.id) + '/avatar'))
 
 					data = User.get(str(self._user.id) + '/avatar', 
@@ -194,12 +198,12 @@ class UserFileSyncer(BaseSync):
 					print "First Sync: Avatar added(updated from server): " + avatar.file_name
 
 			# is just on the client
-			if avatar == None and os.path.exists(whole_file_name):
+			elif avatar == None and file_exists:
 				self._save_avatar(file_name)
 				print "First Sync: Avatar added(new from client): " + file_name
 
 			# is just on the server
-			if avatar != None and not os.path.exists(whole_file_name):
+			elif avatar != None and not file_exists:
 				avatar = Bin(User.get(str(self._user.id) + '/avatar'))
 
 				data = User.get(str(self._user.id) + '/avatar', 
@@ -837,7 +841,7 @@ class Syncer(threading.Thread):
 
 		self._pidgin_syncer = PidginSync(bus, self._user)
 		self._tomboy_syncer = TomboySync(bus, self._user)
-		self._file_syncer = UserFileSyncer(self._user)
+		self._file_syncer = FileWatchSync(self._user)
 
 		self._stopevent = threading.Event()
 		threading.Thread.__init__(self, name='Syncer')
@@ -850,12 +854,12 @@ class Syncer(threading.Thread):
 				if self._needs_first_sync:
 					self._pidgin_syncer.first_sync()
 					self._tomboy_syncer.first_sync()
-					self._file_syncer.first_sync()
+					self._file_syncer.sync()
 					self._needs_first_sync = False
 				else:
 					self._pidgin_syncer.normal_sync()
 					self._tomboy_syncer.normal_sync()
-					pass
+					self._file_syncer.sync()
 				time.sleep(5)
 
 			except Exception:

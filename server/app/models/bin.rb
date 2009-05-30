@@ -10,7 +10,7 @@ class Bin < ActiveRecord::Base
 	attr_accessor :old_server_name
 
 	def get_data()
-		File.open('public/' + self.server_name, 'rb') do |f|
+		File.open('public' + self.server_name, 'rb') do |f|
 			f.read()
 		end
 	end

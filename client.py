@@ -82,6 +82,8 @@ class GConfFileSync(BaseSync):
 	def __init__(self, user):
 		super(GConfFileSync, self).__init__('background')
 		self._user = user
+		self._ignore_event = {}
+		self._background_key = '/desktop/gnome/background/picture_filename'
 
 	def start(self):
 		self._gconf_client = gconf.client_get_default()
@@ -112,9 +114,14 @@ class GConfFileSync(BaseSync):
 		self.set_newest_timestamp(background.updated_timestamp)
 
 	def __on_gconf_key_changed(self, client, id, entry, data):
+		# skip this event if it is in the list of ignores
+		if self._ignore_event.has_key(self._background_key) and self._ignore_event[self._background_key] > 0:
+			self._ignore_event[self._background_key] -= 1
+			return
+
 		key = entry.key
 
-		if key == "/desktop/gnome/background/picture_filename":
+		if key == self._background_key:
 			value = self.__extract_gconf_value(entry.get_value())
 			self.__save_background(value)
 
@@ -146,7 +153,7 @@ class GConfFileSync(BaseSync):
 		return value
 
 	def sync(self):
-		whole_file_name = self._gconf_client.get_string('/desktop/gnome/background/picture_filename')
+		whole_file_name = self._gconf_client.get_string(self._background_key)
 
 		if self.get_newest_timestamp() == None:
 			self.set_newest_timestamp(os.path.getmtime(whole_file_name))
@@ -158,7 +165,7 @@ class GConfFileSync(BaseSync):
 
 		# is on server and client
 		if background and \
-			background.file_name == whole_file_name and \
+			background.file_name != whole_file_name and \
 			file_exists:
 
 			# but the client's is newer
@@ -175,7 +182,10 @@ class GConfFileSync(BaseSync):
 				f = open(background.file_name, 'wb')
 				f.write(data)
 				f.close()
-				self._gconf_client.set_string(background.file_name)
+
+				if not self._ignore_event.has_key(self._background_key): self._ignore_event[self._background_key] = 0
+				self._ignore_event[self._background_key] += 1
+				self._gconf_client.set_string(self._background_key, background.file_name)
 				print "First Sync: Background added(updated from server): " + background.file_name
 
 		# is just on the client
@@ -193,7 +203,10 @@ class GConfFileSync(BaseSync):
 			f = open(background.file_name, 'wb')
 			f.write(data)
 			f.close()
-			self._gconf_client.set_string(background.file_name)
+
+			if not self._ignore_event.has_key(self._background_key): self._ignore_event[self._background_key] = 0
+			self._ignore_event[self._background_key] += 1
+			self._gconf_client.set_string(self._background_key, background.file_name)
 			print "First Sync: Background added(new from server): " + background.file_name
 
 class WatchFileSync(BaseSync):
@@ -975,6 +988,7 @@ class Syncer(threading.Thread):
 					self._tomboy_syncer.first_sync()
 					self._watch_file_syncer.sync()
 					self._gconf_file_syncer.sync()
+
 					self._needs_first_sync = False
 				else:
 					self._pidgin_syncer.normal_sync()

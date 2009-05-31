@@ -98,7 +98,7 @@ class GConfFileSync(BaseSync):
 		f.close()
 
 		# Get the file mime type and extention
-		mime_type = commands.getoutput("file -b -i \"" + filename + "\"")
+		mime_type = commands.getoutput("file -b -i \"" + filename + "\"").split(';')[0]
 		extention = mimetypes.guess_extension(mime_type).lstrip('.')
 
 		# Update the background
@@ -279,11 +279,12 @@ class WatchFileSync(BaseSync):
 
 	def start(self):
 		# Only get CRUD events
-		mask = pyinotify.EventsCodes.IN_MODIFY | \
-				pyinotify.EventsCodes.IN_DELETE | \
-				pyinotify.EventsCodes.IN_CREATE | \
-				pyinotify.EventsCodes.IN_MOVED_FROM | \
-				pyinotify.EventsCodes.IN_MOVED_TO
+		all_flags = pyinotify.EventsCodes.ALL_FLAGS
+		mask = all_flags['IN_MODIFY'] | \
+				all_flags['IN_DELETE']  | \
+				all_flags['IN_CREATE']  | \
+				all_flags['IN_MOVED_FROM']  | \
+				all_flags['IN_MOVED_TO']
 
 		# Start watching the files
 		wm = pyinotify.WatchManager()

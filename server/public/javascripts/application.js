@@ -35,17 +35,6 @@ function delete_cookie(name) {
 	}
 }
 
-function get_user_greeting_from_cookie() {
-	var name = get_cookie('user_name');
-	var greeting = get_cookie('user_greeting');
-
-	if(name != null) {
-		return unescape(greeting).replace(/[+]/g, ' ') + ", " + unescape(name).replace(/[+]/g, ' ');
-	} else {
-		return "Howdy Stranger";
-	}
-}
-
 function is_logged_in() {
 	var value = get_cookie('user_name');
 	return (value != null && value != "");

@@ -9,21 +9,20 @@
 	<%= stylesheet_link_tag 'scaffold' %>
 </head>
 <body>
-	<div id="logout" class="login" style="float: right;">
-		<span id="greeting" style="font-size:18px; font-weight:bold;"></span>
+	<div id="logout" class="login" style="float: right; display: none;">
+		<span id="greeting" style="font-size:18px; font-weight:bold;">
+			<%=link_to cookies['user_name'], :controller => 'users', :action => 'show', :id => cookies['user_id']%>
+		</span>
 		<br />
-		&nbsp;&nbsp;&nbsp;<%= link_to 'Click here to Logout', :controller => 'users', :action => 'logout' %>
+		<%= link_to 'Click here to Logout', :controller => 'users', :action => 'logout' %>
 
+		<% if @is_logged_in %>
 		<script type="text/javascript" language="JavaScript">
 			// <![CDATA[
-			// Hide the log out box if the user is logged out
-			if(is_logged_in() == false) {
-				$('logout').hide();
-			}
-
-			$('greeting').innerHTML = get_user_greeting_from_cookie();
+			$('logout').show();
 			// ]]>
 		</script>
+		<% end %>
 	</div>
 
 <p style="color: green"><%= flash[:notice] %></p>

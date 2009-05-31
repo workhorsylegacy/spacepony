@@ -17,6 +17,12 @@ class ApplicationController < ActionController::Base
   # from your application log (in this case, all fields with names like "password"). 
   # filter_parameter_logging :password
 
+  before_filter :set_is_logged_in
+
+  def set_is_logged_in
+    @is_logged_in = is_logged_in?
+  end
+
   protected
 
   def user_exists?(username)

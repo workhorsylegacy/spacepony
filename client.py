@@ -262,7 +262,7 @@ class WatchFileSync(BaseSync):
 		f.close()
 
 		# Get the file mime type and extention
-		mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"")
+		mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"").split(';')[0]
 		extention = mimetypes.guess_extension(mime_type).lstrip('.')
 
 		# Update the avatar

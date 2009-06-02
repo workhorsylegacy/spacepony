@@ -539,7 +539,7 @@ class PidginSync(BaseSync):
 					print "First Sync: Account updated(client newer): " + pidgin_account.name
 					count_updated_accounts += 1
 				# but server's is newer
-				else:
+				elif pidgin_account.id and pidgin_account.updated_timestamp < server_account.updated_timestamp:
 					server_account = PidginAccount.find(server_account.id, user_id=server_account.user_id)
 					account_id = self._purple.PurpleAccountsFind(server_account.name, server_account.protocol)
 					account_changed = False
@@ -606,7 +606,8 @@ class PidginSync(BaseSync):
 
 		# Get the updated_timestamp of the newest pidgin account
 		for pidgin_account in self._accounts.values():
-			self.set_newest_timestamp(pidgin_account.updated_timestamp)
+			if pidgin_account.id:
+				self.set_newest_timestamp(pidgin_account.updated_timestamp)
 
 		self.notify_summary(count_new_accounts, count_updated_accounts)
 
@@ -632,7 +633,7 @@ class PidginSync(BaseSync):
 					self._accounts[server_guid] = pidgin_account
 					print "Normal Sync: Account updated(client newer): " + pidgin_account.name
 				# but server's is newer
-				else:
+				elif pidgin_account.id and pidgin_account.updated_timestamp < server_account.updated_timestamp:
 					account_id = self._purple.PurpleAccountsFind(server_account.name, server_account.protocol)
 					account_changed = False
 
@@ -854,7 +855,7 @@ class TomboySync(BaseSync):
 					print "First Sync: Note updated(client newer): " + tomboy_note.name
 					count_updated_notes += 1
 				# but server's is newer
-				else:
+				elif tomboy_note.id and tomboy_note.updated_timestamp < server_note.updated_timestamp:
 					server_note = TomboyNote.find(server_note.id, user_id=server_note.user_id)
 					account_changed = False
 
@@ -893,7 +894,8 @@ class TomboySync(BaseSync):
 
 		# Get the updated_timestamp of the newest note
 		for tomboy_note in self._notes.values():
-			self.set_newest_timestamp(tomboy_note.updated_timestamp)
+			if tomboy_note.id:
+				self.set_newest_timestamp(tomboy_note.updated_timestamp)
 
 		self.notify_summary(count_new_notes, count_updated_notes)
 
@@ -917,7 +919,7 @@ class TomboySync(BaseSync):
 					self._notes[tomboy_note.guid] = tomboy_note
 					print "Normal Sync: Note updated(client newer): " + tomboy_note.name
 				# but server's is newer
-				else:
+				elif tomboy_note.id and tomboy_note.updated_timestamp < server_note.updated_timestamp:
 					account_changed = False
 
 					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
@@ -934,7 +936,7 @@ class TomboySync(BaseSync):
 						print "Normal Sync: Note updated(server newer): " + tomboy_note.name
 						self.notify("Updated tomboy note", tomboy_note.name)
 
-				self.set_newest_timestamp(tomboy_note.updated_timestamp)
+				self.set_newest_timestamp(server_note.updated_timestamp)
 
 		# Save the notes that are just on the server
 		for server_note in server_notes.values():

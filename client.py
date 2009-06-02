@@ -93,10 +93,13 @@ class GConfFileSync(BaseSync):
 
 	def __save_background(self, filename):
 		# Read the file into a string
-		print "Server: File saved: " + filename
 		f = open(filename, 'rb')
 		file_data = f.read()
 		f.close()
+
+		# Skip saving the file if it has no length
+		if len(file_data) == 0:
+			return
 
 		# Get the file mime type and extension
 		mime_type = commands.getoutput("file -b -i \"" + filename + "\"").split(';')[0]
@@ -119,6 +122,7 @@ class GConfFileSync(BaseSync):
 		background = Bin(User.get(str(self._user.id) + '/background'))
 		self._user.background_id = background.id
 		self.set_newest_timestamp(background.updated_timestamp)
+		print "Server: File saved: " + filename
 
 	def __on_gconf_key_changed(self, client, id, entry, data):
 		# skip this event if it is in the list of ignores

@@ -98,20 +98,20 @@ class GConfFileSync(BaseSync):
 		file_data = f.read()
 		f.close()
 
-		# Get the file mime type and extention
+		# Get the file mime type and extension
 		mime_type = commands.getoutput("file -b -i \"" + filename + "\"").split(';')[0]
-		extention = mimetypes.guess_extension(mime_type or '').lstrip('.')
+		extension = mimetypes.guess_extension(mime_type or '').lstrip('.')
 
-		# If we could not get the mime-type or extention print an error and return
-		if mime_type == None or extention == '':
+		# If we could not get the mime-type or extension print an error and return
+		if mime_type == None or extension == '':
 			print "Server: Save error: unknown mime-type: " + str(mime_type) + \
-			" and extension " + str(extention) + " for file: " + str(filename)
+			" and extension " + str(extension) + " for file: " + str(filename)
 			return
 
 		# Update the background
 		User.post('background/' + str(self._user.id), 
 					body=file_data, 
-					extension=extention, 
+					extension=extension, 
 					mime_type=mime_type, 
 					original_filename=filename)
 
@@ -276,20 +276,20 @@ class WatchFileSync(BaseSync):
 		if len(file_data) == 0:
 			return
 
-		# Get the file mime type and extention
+		# Get the file mime type and extension
 		mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"").split(';')[0]
-		extention = mimetypes.guess_extension(mime_type or '').lstrip('.')
+		extension = mimetypes.guess_extension(mime_type or '').lstrip('.')
 
-		# If we could not get the mime-type or extention print an error and return
-		if mime_type == None or extention == '':
+		# If we could not get the mime-type or extension print an error and return
+		if mime_type == None or extension == '':
 			print "Server: Save error: unknown mime-type: " + str(mime_type) + \
-			" and extension " + str(extention) + " for file: " + str(original_filename)
+			" and extension " + str(extension) + " for file: " + str(original_filename)
 			return
 
 		# Update the avatar
 		User.post('avatar/' + str(self._user.id), 
 					body=file_data, 
-					extension=extention, 
+					extension=extension, 
 					mime_type=mime_type, 
 					original_filename=original_filename)
 

@@ -63,6 +63,7 @@ class BaseSync(object):
 		self._newest_timestamp = value
 		f = open('newest_' + self._app_name + '_timestamp', 'w')
 		f.write(str(self._newest_timestamp))
+		f.flush()
 		f.close()
 
 	def get_newest_timestamp(self):
@@ -99,7 +100,13 @@ class GConfFileSync(BaseSync):
 
 		# Get the file mime type and extention
 		mime_type = commands.getoutput("file -b -i \"" + filename + "\"").split(';')[0]
-		extention = mimetypes.guess_extension(mime_type).lstrip('.')
+		extention = mimetypes.guess_extension(mime_type or '').lstrip('.')
+
+		# If we could not get the mime-type or extention print an error and return
+		if mime_type == None or extention == '':
+			print "Server: Save error: unknown mime-type: " + str(mime_type) + \
+			" and extension " + str(extention) + " for file: " + str(filename)
+			return
 
 		# Update the background
 		User.post('background/' + str(self._user.id), 
@@ -179,14 +186,18 @@ class GConfFileSync(BaseSync):
 				data = User.get(str(self._user.id) + '/background', 
 												extension='jpeg', 
 												mime_type='image/jpeg')
-				f = open(background.file_name, 'wb')
-				f.write(data)
-				f.close()
 
-				if not self._ignore_event.has_key(self._background_key): self._ignore_event[self._background_key] = 0
-				self._ignore_event[self._background_key] += 1
-				self._gconf_client.set_string(self._background_key, background.file_name)
-				print "First Sync: Background added(updated from server): " + background.file_name
+				# Only save the data if the length is greater than zero
+				if len(data) > 0:
+					f = open(background.file_name, 'wb')
+					f.write(data)
+					f.flush()
+					f.close()
+
+					if not self._ignore_event.has_key(self._background_key): self._ignore_event[self._background_key] = 0
+					self._ignore_event[self._background_key] += 1
+					self._gconf_client.set_string(self._background_key, background.file_name)
+					print "First Sync: Background added(updated from server): " + background.file_name
 
 		# is just on the client
 		elif background == None and file_exists:
@@ -202,6 +213,7 @@ class GConfFileSync(BaseSync):
 											mime_type='image/jpeg')
 			f = open(background.file_name, 'wb')
 			f.write(data)
+			f.flush()
 			f.close()
 
 			if not self._ignore_event.has_key(self._background_key): self._ignore_event[self._background_key] = 0
@@ -256,14 +268,23 @@ class WatchFileSync(BaseSync):
 
 		# Read the file into a string
 		original_filename = self._path + filename
-		print "Server: File saved: " + original_filename
 		f = open(original_filename, 'rb')
 		file_data = f.read()
 		f.close()
 
+		# Skip saving the file if it has no length
+		if len(file_data) == 0:
+			return
+
 		# Get the file mime type and extention
 		mime_type = commands.getoutput("file -b -i \"" + original_filename + "\"").split(';')[0]
-		extention = mimetypes.guess_extension(mime_type).lstrip('.')
+		extention = mimetypes.guess_extension(mime_type or '').lstrip('.')
+
+		# If we could not get the mime-type or extention print an error and return
+		if mime_type == None or extention == '':
+			print "Server: Save error: unknown mime-type: " + str(mime_type) + \
+			" and extension " + str(extention) + " for file: " + str(original_filename)
+			return
 
 		# Update the avatar
 		User.post('avatar/' + str(self._user.id), 
@@ -276,6 +297,7 @@ class WatchFileSync(BaseSync):
 		avatar = Bin(User.get(str(self._user.id) + '/avatar'))
 		self._user.avatar_id = avatar.id
 		self._avatar_syncer.set_newest_timestamp(avatar.updated_timestamp)
+		print "Server: File saved: " + original_filename
 
 	def start(self):
 		# Only get CRUD events
@@ -323,10 +345,14 @@ class WatchFileSync(BaseSync):
 					data = User.get(str(self._user.id) + '/avatar', 
 													extension='jpeg', 
 													mime_type='image/jpeg')
-					f = open(avatar.file_name, 'wb')
-					f.write(data)
-					f.close()
-					print "First Sync: Avatar added(updated from server): " + avatar.file_name
+
+					# Only save the data if the length is greater than zero
+					if len(data) > 0:
+						f = open(avatar.file_name, 'wb')
+						f.write(data)
+						f.flush()
+						f.close()
+						print "First Sync: Avatar added(updated from server): " + avatar.file_name
 
 			# is just on the client
 			elif avatar == None and file_exists:
@@ -342,6 +368,7 @@ class WatchFileSync(BaseSync):
 												mime_type='image/jpeg')
 				f = open(avatar.file_name, 'wb')
 				f.write(data)
+				f.flush()
 				f.close()
 				print "First Sync: Avatar added(new from server): " + avatar.file_name
 

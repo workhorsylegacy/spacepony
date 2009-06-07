@@ -955,9 +955,10 @@ class TomboySync(BaseSync):
 Syncs notes to and from the server
 """
 class Syncer(threading.Thread):
-	def __init__(self, username, password, email):
+	def __init__(self):
 		self._needs_first_sync = True
 
+	def setup(self, username, password, email):
 		# Initiate a connection to the Session Bus
 		bus = dbus.SessionBus()
 
@@ -993,12 +994,18 @@ class Syncer(threading.Thread):
 			User.get('ensure_user_exists', name=username, password=password, email=email)
 		except connection.UnauthorizedAccess, err:
 			print 'Invalid login.'
-			exit()
+			exit(1)
 		except connection.ResourceInvalid, err:
 			print "Validation Failed:"
 			for error in util.xml_to_dict(err.response.body)['error']:
 				print "    " + error
-			exit()
+			exit(1)
+		except connection.Error:
+			print "Failed to connect to server. Exiting ..."
+			exit(1)
+		except Exception, e:
+			traceback.print_exc(file=sys.stdout)
+			exit(1)
 
 		# Get the user from the server
 		self._user = User(User.get('get_logged_in_user'))
@@ -1031,7 +1038,10 @@ class Syncer(threading.Thread):
 					self._gconf_file_syncer.sync()
 				time.sleep(5)
 
-			except Exception:
+			except connection.Error:
+				print "Failed to connect to server. Exiting ..."
+				exit(1)
+			except Exception, e:
 				traceback.print_exc(file=sys.stdout)
 				exit(1)
 
@@ -1063,7 +1073,8 @@ class Syncer(threading.Thread):
 		if self._needs_first_sync == True: return
 		self._tomboy_syncer.remove_note(note)
 
-syncer = Syncer(USERNAME, PASSWORD, EMAIL)
+syncer = Syncer()
+syncer.setup(USERNAME, PASSWORD, EMAIL)
 syncer.start()
 print "client running ..."
 

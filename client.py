@@ -2,18 +2,12 @@
 
 import dbus, gobject, dbus.glib, gconf
 import base64, time, decimal, mimetypes
-import sys, os, threading, traceback, commands
+import sys, os, threading, traceback, commands, signal
 import ctypes, pynotify, pyinotify
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 from pyactiveresource import util
 from pyactiveresource import connection
-
-# Move the path to the location of the current file
-os.chdir(os.sys.path[0])
-
-# Initialize the mime types
-mimetypes.init()
 
 # Change the name of this process to spacepony
 try:
@@ -22,6 +16,29 @@ try:
 except:
 	pass
 
+# Move the path to the location of the current file
+os.chdir(os.sys.path[0])
+
+# Initialize the mime types
+mimetypes.init()
+
+# Initialize pynotify
+if not pynotify.init("Sync notification"):
+	print "Failed to initialize pynotify. Exiting ..."
+	sys.exit(1)
+
+# Make it so the dbus threads and python threads work at the same time
+gobject.threads_init()
+dbus.glib.init_threads()
+main_loop = None
+syncer = None
+
+# Have the program quit when ctrl+c is pressed
+def quit_program(signl, frme):
+	print "Exiting ..."
+	if syncer: syncer.stop()
+	if main_loop: main_loop.quit()
+signal.signal(signal.SIGINT, quit_program)
 
 USERNAME = "mattjones"
 PASSWORD = "password"
@@ -42,14 +59,6 @@ class TomboyNote(ActiveResource):
 class Bin(ActiveResource):
 	_site = SERVER_ADDRESS
 
-# Make it so the dbus threads and python threads work at the same time
-gobject.threads_init()
-dbus.glib.init_threads()
-
-# Initialize pynotify
-if not pynotify.init("Sync notification"):
-	print "Failed to initialize pynotify. Exiting ..."
-	sys.exit(1)
 
 class BaseSync(object):
 	def __init__(self, app_name):
@@ -89,7 +98,11 @@ class GConfFileSync(BaseSync):
 	def start(self):
 		self._gconf_client = gconf.client_get_default()
 		self._gconf_client.add_dir('/', gconf.CLIENT_PRELOAD_NONE)
-		self._gconf_client.notify_add('/', self.__on_gconf_key_changed)
+		self._notify_add_id = self._gconf_client.notify_add('/', self.__on_gconf_key_changed)
+
+	def stop(self):
+		self._gconf_client.notify_remove(self._notify_add_id)
+		self._gconf_client.remove_dir('/')
 
 	def __save_background(self, filename):
 		# Read the file into a string
@@ -229,6 +242,7 @@ class WatchFileSync(BaseSync):
 	class EventHandler(pyinotify.ProcessEvent):
 		def __init__(self, parent):
 			self._parent = parent
+			self._notifier = None
 
 		# new
 		def process_IN_CREATE(self, event):
@@ -314,9 +328,13 @@ class WatchFileSync(BaseSync):
 
 		# Start watching the files
 		wm = pyinotify.WatchManager()
-		notifier = pyinotify.ThreadedNotifier(wm, WatchFileSync.EventHandler(self))
-		notifier.start()
+		self._notifier = pyinotify.ThreadedNotifier(wm, WatchFileSync.EventHandler(self))
+		self._notifier.start()
 		wm.add_watch(self._path, mask)
+
+	def stop(self):
+		if self._notifier:
+			self._notifier.stop()
 
 	def sync(self):
 		for file_type, file_name in self._files.iteritems():
@@ -955,10 +973,23 @@ class TomboySync(BaseSync):
 Syncs notes to and from the server
 """
 class Syncer(threading.Thread):
-	def __init__(self):
-		self._needs_first_sync = True
+	def __init__(self, username, password, email):
+		self._stopevent = threading.Event()
+		threading.Thread.__init__(self, name='Syncer')
 
-	def setup(self, username, password, email):
+		self._needs_first_sync = True
+		self._needs_setup = True
+
+		self._pidgin_syncer = None
+		self._tomboy_syncer = None
+		self._watch_file_syncer = None
+		self._gconf_file_syncer = None
+
+		self._username = username
+		self._password = password
+		self._email = email
+
+	def setup(self):
 		# Initiate a connection to the Session Bus
 		bus = dbus.SessionBus()
 
@@ -991,7 +1022,7 @@ class Syncer(threading.Thread):
 		# Create the user or make sure it exists
 		self._user = None
 		try:
-			User.get('ensure_user_exists', name=username, password=password, email=email)
+			User.get('ensure_user_exists', name=self._username, password=self._password, email=self._email)
 		except connection.UnauthorizedAccess, err:
 			print 'Invalid login.'
 			exit(1)
@@ -999,12 +1030,6 @@ class Syncer(threading.Thread):
 			print "Validation Failed:"
 			for error in util.xml_to_dict(err.response.body)['error']:
 				print "    " + error
-			exit(1)
-		except connection.Error:
-			print "Failed to connect to server. Exiting ..."
-			exit(1)
-		except Exception, e:
-			traceback.print_exc(file=sys.stdout)
 			exit(1)
 
 		# Get the user from the server
@@ -1015,15 +1040,16 @@ class Syncer(threading.Thread):
 		self._watch_file_syncer = WatchFileSync(self._user)
 		self._gconf_file_syncer = GConfFileSync(self._user)
 
-		self._stopevent = threading.Event()
-		threading.Thread.__init__(self, name='Syncer')
+		self._needs_setup = False
 
 	def run(self):
-		self._watch_file_syncer.start()
-		self._gconf_file_syncer.start()
-
 		while not self._stopevent.isSet():
 			try:
+				if self._needs_setup:
+					self.setup()
+					self._watch_file_syncer.start()
+					self._gconf_file_syncer.start()
+
 				if self._needs_first_sync:
 					self._pidgin_syncer.first_sync()
 					self._tomboy_syncer.first_sync()
@@ -1036,17 +1062,25 @@ class Syncer(threading.Thread):
 					self._tomboy_syncer.normal_sync()
 					self._watch_file_syncer.sync()
 					self._gconf_file_syncer.sync()
-				time.sleep(5)
 
 			except connection.Error:
-				print "Failed to connect to server. Exiting ..."
-				exit(1)
+				print "Failed to connect to server ..."
 			except Exception, e:
 				traceback.print_exc(file=sys.stdout)
 				exit(1)
 
+			time.sleep(5)
+
 	def join(self, timeout=None):
 		threading.Thread.join(self, timeout)
+
+	def stop(self):
+		self._stopevent.set()
+		self.join()
+		if self._watch_file_syncer:
+			self._watch_file_syncer.stop()
+		if self._gconf_file_syncer:
+			self._gconf_file_syncer.stop()
 
 	def onAccountStatusChanged(self, account_id, old, new):
 		if self._needs_first_sync == True: return
@@ -1073,13 +1107,13 @@ class Syncer(threading.Thread):
 		if self._needs_first_sync == True: return
 		self._tomboy_syncer.remove_note(note)
 
-syncer = Syncer()
-syncer.setup(USERNAME, PASSWORD, EMAIL)
-syncer.start()
 print "client running ..."
+syncer = Syncer(USERNAME, PASSWORD, EMAIL)
+syncer.start()
 
 # Wait here and run events
-gobject.MainLoop().run()
+main_loop = gobject.MainLoop()
+main_loop.run()
 
 
 

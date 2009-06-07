@@ -98,13 +98,13 @@ class GConfFileSync(BaseSync):
 	def start(self):
 		self._gconf_client = gconf.client_get_default()
 		self._gconf_client.add_dir('/', gconf.CLIENT_PRELOAD_NONE)
-		self._notify_add_id = self._gconf_client.notify_add('/', self.__on_gconf_key_changed)
+		self._notify_add_id = self._gconf_client.notify_add('/', self._on_gconf_key_changed)
 
 	def stop(self):
 		self._gconf_client.notify_remove(self._notify_add_id)
 		self._gconf_client.remove_dir('/')
 
-	def __save_background(self, filename):
+	def _save_background(self, filename):
 		# Read the file into a string
 		f = open(filename, 'rb')
 		file_data = f.read()
@@ -137,7 +137,7 @@ class GConfFileSync(BaseSync):
 		self.set_newest_timestamp(background.updated_timestamp)
 		print "Server: File saved: " + filename
 
-	def __on_gconf_key_changed(self, client, id, entry, data):
+	def _on_gconf_key_changed(self, client, id, entry, data):
 		# skip this event if it is in the list of ignores
 		if self._ignore_event.has_key(self._background_key) and self._ignore_event[self._background_key] > 0:
 			self._ignore_event[self._background_key] -= 1
@@ -146,10 +146,10 @@ class GConfFileSync(BaseSync):
 		key = entry.key
 
 		if key == self._background_key:
-			value = self.__extract_gconf_value(entry.get_value())
-			self.__save_background(value)
+			value = self._extract_gconf_value(entry.get_value())
+			self._save_background(value)
 
-	def __extract_gconf_value(self, gconf_value):
+	def _extract_gconf_value(self, gconf_value):
 		if gconf_value == None:
 			return None
 
@@ -167,7 +167,7 @@ class GConfFileSync(BaseSync):
 			value = []
 			list = gconf_value.get_list()
 			for item in list:
-				value.append(self.__extract_gconf_value(item))
+				value.append(self._extract_gconf_value(item))
 		elif type == gconf.VALUE_SCHEMA or type == gconf.VALUE_PAIR or \
 			type == gconf.VALUE_INVALID:
 			pass
@@ -194,7 +194,7 @@ class GConfFileSync(BaseSync):
 
 			# but the client's is newer
 			if self.get_newest_timestamp() > background.updated_timestamp:
-				self.__save_background(whole_file_name)
+				self._save_background(whole_file_name)
 				print "First Sync: Background added(updated from client): " + background.file_name
 			# but the server's is newer
 			elif self.get_newest_timestamp() < background.updated_timestamp:
@@ -218,7 +218,7 @@ class GConfFileSync(BaseSync):
 
 		# is just on the client
 		elif background == None and file_exists:
-			self.__save_background(whole_file_name)
+			self._save_background(whole_file_name)
 			print "First Sync: Background added(new from client): " + whole_file_name
 
 		# is just on the server
@@ -989,7 +989,7 @@ class Syncer(threading.Thread):
 		self._password = password
 		self._email = email
 
-	def setup(self):
+	def _setup(self):
 		# Initiate a connection to the Session Bus
 		bus = dbus.SessionBus()
 
@@ -1046,7 +1046,7 @@ class Syncer(threading.Thread):
 		while not self._stopevent.isSet():
 			try:
 				if self._needs_setup:
-					self.setup()
+					self._setup()
 					self._watch_file_syncer.start()
 					self._gconf_file_syncer.start()
 

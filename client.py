@@ -411,16 +411,43 @@ class PidginSync(BaseSync):
 		self._ignore_event = {}
 		self._accounts = {}
 		self._user = user
+		self._purple = None
+		self._bus = bus
 
-		#(success, status) = bus.start_service_by_name('im.pidgin.purple.PurpleService')
-
-		# Get Pidgin's D-Bus interface
+	def is_pidgin_running(self):
 		try:
-			obj = bus.get_object("im.pidgin.purple.PurpleService", 
-								"/im/pidgin/purple/PurpleObject")
-			self._purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
-		except:
-			raise Exception("Please start pidgin first.")
+			self._bus.get_name_owner('im.pidgin.purple.PurpleService')
+			return True
+		except dbus.exceptions.DBusException:
+			return False
+
+	'''
+		Returns true if the self._purple dbus object was 
+		set to an abject, or null if not.
+	'''
+	def _ensure_valid_dbus_connection(self):
+		# Check if the dbus object is null or invalid
+		needs_dbus = False
+		if self._purple == None:
+			needs_dbus = True
+		else:
+			try:
+				self._purple.PurpleCoreGetVersion()
+			except dbus.exceptions.DBusException:
+				needs_dbus = True
+
+		# Get a new dbus object
+		if needs_dbus:
+			self._purple = None
+			try:
+				bus = dbus.SessionBus()
+				obj = bus.get_object("im.pidgin.purple.PurpleService", "/im/pidgin/purple/PurpleObject")
+				self._purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
+			except dbus.exceptions.DBusException:
+				pass
+
+		# Return true if was successfull
+		return self._purple is None
 
 	def notify(self, title, body):
 		n = pynotify.Notification(title, body, 
@@ -442,6 +469,7 @@ class PidginSync(BaseSync):
 		self.notify("Accounts synced with server", message)
 
 	def add_account(self, account_id, save_now = True):
+		self._ensure_valid_dbus_connection()
 		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
 
 		# skip this event if it is in the list of ignores
@@ -475,6 +503,7 @@ class PidginSync(BaseSync):
 			print "Server: Added Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
 	def update_account_status(self, account_id, old, new):
+		self._ensure_valid_dbus_connection()
 		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
 
 		# skip this event if it is in the list of ignores
@@ -508,6 +537,7 @@ class PidginSync(BaseSync):
 			"' with the message '" + (pidgin_account.message or '') + "'."
 
 	def remove_account(self, account_id):
+		self._ensure_valid_dbus_connection()
 		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
 
 		# skip this event if it is in the list of ignores
@@ -530,10 +560,12 @@ class PidginSync(BaseSync):
 		print "Server: Removed Pidgin account " + pidgin_account.name + " with the protocol " + pidgin_account.protocol + "."
 
 	def first_sync(self):
+		self._ensure_valid_dbus_connection()
 		count_new_accounts = 0
 		count_updated_accounts = 0
 
 		# Add all the local pidgin accounts
+		self._accounts = {}
 		for account in self._purple.PurpleAccountsGetAll():
 			self.add_account(account, False)
 
@@ -630,6 +662,8 @@ class PidginSync(BaseSync):
 		self.notify_summary(count_new_accounts, count_updated_accounts)
 
 	def normal_sync(self):
+		self._ensure_valid_dbus_connection()
+
 		# Find the pidgin accounts on the server that are newer or updated
 		newest_timestamp = self.get_newest_timestamp() or 0
 		server_accounts = {}
@@ -718,17 +752,44 @@ class TomboySync(BaseSync):
 		self._ignore_event = {}
 		self._notes = {}
 		self._user = user
+		self._tomboy = None
+		self._bus = bus
 
-		(success, status) = bus.start_service_by_name('org.gnome.Tomboy')
-
-		# Get Tomboy's D-Bus interface
+	def is_tomboy_running(self):
 		try:
-			obj = bus.get_object("org.gnome.Tomboy", 
-								"/org/gnome/Tomboy/RemoteControl")
-			self._tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
-		except:
-			raise Exception("Please start tomboy first.")
+			self._bus.get_name_owner('org.gnome.Tomboy')
+			return True
+		except dbus.exceptions.DBusException:
+			return False
 
+	'''
+		Returns true if the self._tomboy dbus object was 
+		set to an abject, or null if not.
+	'''
+	def _ensure_valid_dbus_connection(self):
+		# Check if the dbus object is null or invalid
+		needs_dbus = False
+		if self._tomboy == None:
+			needs_dbus = True
+		else:
+			try:
+				self._tomboy.Value()
+			except dbus.exceptions.DBusException:
+				needs_dbus = True
+
+		# Get a new dbus object
+		if needs_dbus:
+			self._tomboy = None
+			try:
+				bus = dbus.SessionBus()
+				obj = bus.get_object("org.gnome.Tomboy", 
+									"/org/gnome/Tomboy/RemoteControl")
+				self._tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+			except dbus.exceptions.DBusException:
+				pass
+
+		# Return true if was successfull
+		return self._tomboy is None
 
 	def notify(self, title, body):
 		n = pynotify.Notification(title, body, 
@@ -750,6 +811,7 @@ class TomboySync(BaseSync):
 		self.notify("Notes synced with server", message)
 
 	def add_note(self, note, save_now = True):
+		self._ensure_valid_dbus_connection()
 		note_guid = str(note).replace("note://tomboy/", "")
 
 		# skip this event if it is in the list of ignores
@@ -783,6 +845,7 @@ class TomboySync(BaseSync):
 			print "Server: Note added: " + tomboy_note.name
 
 	def update_note(self, note):
+		self._ensure_valid_dbus_connection()
 		note_guid = str(note).replace("note://tomboy/", "")
 
 		# skip this event if it is in the list of ignores
@@ -826,6 +889,7 @@ class TomboySync(BaseSync):
 
 
 	def remove_note(self, note):
+		self._ensure_valid_dbus_connection()
 		note_guid = str(note).replace("note://tomboy/", "")
 
 		# skip this event if it is in the list of ignores
@@ -848,10 +912,12 @@ class TomboySync(BaseSync):
 		print "Server: Note deleted: " + tomboy_note.name
 
 	def first_sync(self):
+		self._ensure_valid_dbus_connection()
 		count_new_notes = 0
 		count_updated_notes = 0
 
 		# Add all the local tomboy notes
+		self._notes = {}
 		for note in self._tomboy.ListAllNotes():
 			self.add_note(note, False)
 
@@ -918,6 +984,8 @@ class TomboySync(BaseSync):
 		self.notify_summary(count_new_notes, count_updated_notes)
 
 	def normal_sync(self):
+		self._ensure_valid_dbus_connection()
+
 		# Find the notes on the server that are newer or updated
 		newest_timestamp = self.get_newest_timestamp() or 0
 		server_notes = {}
@@ -985,6 +1053,9 @@ class Syncer(threading.Thread):
 		self._watch_file_syncer = None
 		self._gconf_file_syncer = None
 
+		self._needs_pidgin_resync = False
+		self._needs_tomboy_resync = False
+
 		self._username = username
 		self._password = password
 		self._email = email
@@ -1043,6 +1114,8 @@ class Syncer(threading.Thread):
 		self._needs_setup = False
 
 	def run(self):
+		# FIXME: This loop is messy. Rewrite the syncing of pidgin
+		# and tomboy stuff to have only the normal_sync.
 		while not self._stopevent.isSet():
 			try:
 				if self._needs_setup:
@@ -1051,15 +1124,33 @@ class Syncer(threading.Thread):
 					self._gconf_file_syncer.start()
 
 				if self._needs_first_sync:
-					self._pidgin_syncer.first_sync()
-					self._tomboy_syncer.first_sync()
+					if self._pidgin_syncer.is_pidgin_running():
+						self._pidgin_syncer.first_sync()
+					if self._tomboy_syncer.is_tomboy_running():
+						self._tomboy_syncer.first_sync()
 					self._watch_file_syncer.sync()
 					self._gconf_file_syncer.sync()
 
 					self._needs_first_sync = False
 				else:
-					self._pidgin_syncer.normal_sync()
-					self._tomboy_syncer.normal_sync()
+					if self._pidgin_syncer.is_pidgin_running():
+						if self._needs_pidgin_resync:
+							self._pidgin_syncer.first_sync()
+							self._needs_pidgin_resync = False
+						else:
+							self._pidgin_syncer.normal_sync()
+					else:
+						self._needs_pidgin_resync = True
+
+					if self._tomboy_syncer.is_tomboy_running():
+						if self._needs_tomboy_resync:
+							self._tomboy_syncer.first_sync()
+							self._needs_tomboy_resync = False
+						else:
+							self._tomboy_syncer.normal_sync()
+					else:
+						self._needs_tomboy_resync = True
+
 					self._watch_file_syncer.sync()
 					self._gconf_file_syncer.sync()
 

@@ -470,7 +470,24 @@ class PidginSync(BaseSync):
 
 	def add_account(self, account_id, save_now = True):
 		self._ensure_valid_dbus_connection()
-		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
+
+		# Get the account info from dbus, and return if we can't
+		account_guid, pidgin_account = None, None
+		try:
+			account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
+
+			status = self._purple.PurpleSavedstatusGetCurrent()
+			pidgin_account = PidginAccount()
+			pidgin_account.user_id = self._user.id
+			pidgin_account.name = str(self._purple.PurpleAccountGetUsername(account_id))
+			pidgin_account.password = str(self._purple.PurpleAccountGetPassword(account_id))
+			pidgin_account.status = str(self._purple.PurplePrimitiveGetIdFromType(self._purple.PurpleSavedstatusGetType(status)))
+			pidgin_account.message = str(self._purple.PurpleSavedstatusGetMessage(status) or "")
+			pidgin_account.protocol = str(self._purple.PurpleAccountGetProtocolId(account_id))
+			pidgin_account.icon = str(self._purple.PurpleAccountGetBuddyIconPath(account_id) or "")
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when on pidgin account add."
+			return
 
 		# skip this event if it is in the list of ignores
 		if self._ignore_event.has_key(account_guid) and self._ignore_event[account_guid] > 0:
@@ -482,16 +499,6 @@ class PidginSync(BaseSync):
 			return
 
 		# Retrieve the current status
-		status = self._purple.PurpleSavedstatusGetCurrent()
-
-		pidgin_account = PidginAccount()
-		pidgin_account.user_id = self._user.id
-		pidgin_account.name = str(self._purple.PurpleAccountGetUsername(account_id))
-		pidgin_account.password = str(self._purple.PurpleAccountGetPassword(account_id))
-		pidgin_account.status = str(self._purple.PurplePrimitiveGetIdFromType(self._purple.PurpleSavedstatusGetType(status)))
-		pidgin_account.message = str(self._purple.PurpleSavedstatusGetMessage(status) or "")
-		pidgin_account.protocol = str(self._purple.PurpleAccountGetProtocolId(account_id))
-		pidgin_account.icon = str(self._purple.PurpleAccountGetBuddyIconPath(account_id) or "")
 		if save_now:
 			pidgin_account.save()
 			pidgin_account = PidginAccount.find(pidgin_account.id, user_id=pidgin_account.user_id)
@@ -504,7 +511,22 @@ class PidginSync(BaseSync):
 
 	def update_account_status(self, account_id, old, new):
 		self._ensure_valid_dbus_connection()
-		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
+
+		# Get the account info from dbus, and return if we can't
+		account_guid, pidgin_account = None, None
+		try:
+			account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
+
+			# Get the new status
+			status = self._purple.PurpleSavedstatusGetCurrent()
+
+			# Save the new status
+			pidgin_account = self._accounts[account_guid]
+			pidgin_account.status = str(self._purple.PurplePrimitiveGetIdFromType(self._purple.PurpleSavedstatusGetType(status)))
+			pidgin_account.message = str(self._purple.PurpleSavedstatusGetMessage(status) or "")
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when on pidgin account update."
+			return
 
 		# skip this event if it is in the list of ignores
 		if self._ignore_event.has_key(account_guid) and self._ignore_event[account_guid] > 0:
@@ -515,14 +537,6 @@ class PidginSync(BaseSync):
 		if not self._accounts.has_key(account_guid):
 			print "no pidgin account with guid: " + account_guid
 			return
-
-		# Get the new status
-		status = self._purple.PurpleSavedstatusGetCurrent()
-
-		# Save the new status
-		pidgin_account = self._accounts[account_guid]
-		pidgin_account.status = str(self._purple.PurplePrimitiveGetIdFromType(self._purple.PurpleSavedstatusGetType(status)))
-		pidgin_account.message = str(self._purple.PurpleSavedstatusGetMessage(status) or "")
 
 		try:
 			pidgin_account.save()
@@ -538,7 +552,14 @@ class PidginSync(BaseSync):
 
 	def remove_account(self, account_id):
 		self._ensure_valid_dbus_connection()
-		account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
+
+		# Get the account info from dbus, and return if we can't
+		account_guid = None
+		try:
+			account_guid = self._purple.PurpleAccountGetUsername(account_id) + ':' + self._purple.PurpleAccountGetProtocolId(account_id)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when on pidgin account remove."
+			return
 
 		# skip this event if it is in the list of ignores
 		if self._ignore_event.has_key(account_guid) and self._ignore_event[account_guid] > 0:
@@ -566,8 +587,12 @@ class PidginSync(BaseSync):
 
 		# Add all the local pidgin accounts
 		self._accounts = {}
-		for account in self._purple.PurpleAccountsGetAll():
-			self.add_account(account, False)
+		try:
+			for account in self._purple.PurpleAccountsGetAll():
+				self.add_account(account, False)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection on pidgin first sync."
+			return
 
 		# Find the pidgin accounts on the server that are newer or updated
 		newest_timestamp = self.get_newest_timestamp() or 0
@@ -591,29 +616,39 @@ class PidginSync(BaseSync):
 				# but server's is newer
 				elif pidgin_account.id and pidgin_account.updated_timestamp < server_account.updated_timestamp:
 					server_account = PidginAccount.find(server_account.id, user_id=server_account.user_id)
-					account_id = self._purple.PurpleAccountsFind(server_account.name, server_account.protocol)
+					account_id = None
+					try:
+						account_id = self._purple.PurpleAccountsFind(server_account.name, server_account.protocol)
+					except dbus.exceptions.DBusException:
+						print "Error: Lost dbus connection on pidgin first sync."
+						return
+
 					account_changed = False
 
 					if not self._ignore_event.has_key(server_guid): self._ignore_event[server_guid] = 0
 					self._ignore_event[server_guid] += 1
 
-					if pidgin_account.name != server_account.name:
-						account_changed = True
-						self._purple.PurpleAccountSetUsername(account_id, pidgin_account.name)
-					if pidgin_account.password != server_account.password:
-						account_changed = True
-						self._purple.PurpleAccountSetPassword(account_id, pidgin_account.password)
-					if (pidgin_account.status or '') != (server_account.status or '') or \
-						(pidgin_account.message or '') != (server_account.message or ''):
-						account_changed = True
-						status = self._purple.PurpleSavedstatusFind(server_account.status)
-						self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
-					if pidgin_account.protocol != server_account.protocol:
-						account_changed = True
-						self._purple.PurpleAccountSetProtocolId(account_id, server_account.protocol)
-					if (pidgin_account.icon or '') != (server_account.icon or ''):
-						account_changed = True
-						self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon or "")
+					try:
+						if pidgin_account.name != server_account.name:
+							account_changed = True
+							self._purple.PurpleAccountSetUsername(account_id, pidgin_account.name)
+						if pidgin_account.password != server_account.password:
+							account_changed = True
+							self._purple.PurpleAccountSetPassword(account_id, pidgin_account.password)
+						if (pidgin_account.status or '') != (server_account.status or '') or \
+							(pidgin_account.message or '') != (server_account.message or ''):
+							account_changed = True
+							status = self._purple.PurpleSavedstatusFind(server_account.status)
+							self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+						if pidgin_account.protocol != server_account.protocol:
+							account_changed = True
+							self._purple.PurpleAccountSetProtocolId(account_id, server_account.protocol)
+						if (pidgin_account.icon or '') != (server_account.icon or ''):
+							account_changed = True
+							self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon or "")
+					except dbus.exceptions.DBusException:
+						print "Error: Lost dbus connection on pidgin first sync."
+						return
 
 					self._accounts[server_guid] = server_account
 
@@ -630,19 +665,25 @@ class PidginSync(BaseSync):
 				if not self._ignore_event.has_key(server_guid): self._ignore_event[server_guid] = 0
 				self._ignore_event[server_guid] += 1
 
-				self._accounts[server_guid] = server_account
-				account_id = self._purple.PurpleAccountNew(server_account.name, server_account.protocol)
-				self._purple.PurpleAccountsAdd(account_id)
+				try:
+					self._accounts[server_guid] = server_account
+					account_id = self._purple.PurpleAccountNew(server_account.name, server_account.protocol)
+					self._purple.PurpleAccountsAdd(account_id)
 
-				self._purple.PurpleAccountSetRememberPassword(account_id, 1)
-				self._purple.PurpleAccountSetPassword(account_id, server_account.password)
+					self._purple.PurpleAccountSetRememberPassword(account_id, 1)
+					self._purple.PurpleAccountSetPassword(account_id, server_account.password)
 
-				self._purple.PurpleAccountSetEnabled(account_id, "gtk-gaim", 1)
+					self._purple.PurpleAccountSetEnabled(account_id, "gtk-gaim", 1)
 
-				status = self._purple.PurpleSavedstatusFind(server_account.status)
-				self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
-				if server_account.icon and server_account.icon != '':
-					self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
+					status = self._purple.PurpleSavedstatusFind(server_account.status)
+					self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+					if server_account.icon and server_account.icon != '':
+						self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
+				except dbus.exceptions.DBusException:
+					print "Error: Lost dbus connection on pidgin first sync."
+					return
+
+
 				print "First Sync: Account added(new from server): " + server_account.name
 				count_new_accounts += 1
 
@@ -686,29 +727,39 @@ class PidginSync(BaseSync):
 					print "Normal Sync: Account updated(client newer): " + pidgin_account.name
 				# but server's is newer
 				elif pidgin_account.id and pidgin_account.updated_timestamp < server_account.updated_timestamp:
-					account_id = self._purple.PurpleAccountsFind(server_account.name, server_account.protocol)
+					account_id = None
+					try:
+						account_id = self._purple.PurpleAccountsFind(server_account.name, server_account.protocol)
+					except dbus.exceptions.DBusException:
+						print "Error: Lost dbus connection on pidgin normal sync."
+						return
+
 					account_changed = False
 
 					if not self._ignore_event.has_key(server_guid): self._ignore_event[server_guid] = 0
 					self._ignore_event[server_guid] += 1
 
-					if pidgin_account.name != server_account.name:
-						account_changed = True
-						self._purple.PurpleAccountSetUsername(account_id, pidgin_account.name)
-					if pidgin_account.password != server_account.password:
-						account_changed = True
-						self._purple.PurpleAccountSetPassword(account_id, pidgin_account.password)
-					if (pidgin_account.status or '') != (server_account.status or '') or \
-						(pidgin_account.message or '') != (server_account.message or ''):
-						account_changed = True
-						status = self._purple.PurpleSavedstatusFind(server_account.status)
-						self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
-					if pidgin_account.protocol != server_account.protocol:
-						account_changed = True
-						self._purple.PurpleAccountSetProtocolId(account_id, server_account.protocol)
-					if (pidgin_account.icon or '') != (server_account.icon or ''):
-						account_changed = True
-						self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon or "")
+					try:
+						if pidgin_account.name != server_account.name:
+							account_changed = True
+							self._purple.PurpleAccountSetUsername(account_id, pidgin_account.name)
+						if pidgin_account.password != server_account.password:
+							account_changed = True
+							self._purple.PurpleAccountSetPassword(account_id, pidgin_account.password)
+						if (pidgin_account.status or '') != (server_account.status or '') or \
+							(pidgin_account.message or '') != (server_account.message or ''):
+							account_changed = True
+							status = self._purple.PurpleSavedstatusFind(server_account.status)
+							self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+						if pidgin_account.protocol != server_account.protocol:
+							account_changed = True
+							self._purple.PurpleAccountSetProtocolId(account_id, server_account.protocol)
+						if (pidgin_account.icon or '') != (server_account.icon or ''):
+							account_changed = True
+							self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon or "")
+					except dbus.exceptions.DBusException:
+						print "Error: Lost dbus connection on pidgin normal sync."
+						return
 
 					if account_changed:
 						print "Normal Sync: Account updated(server newer): " + server_account.name
@@ -723,22 +774,23 @@ class PidginSync(BaseSync):
 				if not self._ignore_event.has_key(server_guid): self._ignore_event[server_guid] = 0
 				self._ignore_event[server_guid] += 1
 
-				self._accounts[server_guid] = server_account
-				account_id = self._purple.PurpleAccountNew(server_account.name, server_account.protocol)
-				self._purple.PurpleAccountsAdd(account_id)
+				try:
+					self._accounts[server_guid] = server_account
+					account_id = self._purple.PurpleAccountNew(server_account.name, server_account.protocol)
+					self._purple.PurpleAccountsAdd(account_id)
 
-				self._purple.PurpleAccountSetRememberPassword(account_id, 1)
-				self._purple.PurpleAccountSetPassword(account_id, server_account.password)
+					self._purple.PurpleAccountSetRememberPassword(account_id, 1)
+					self._purple.PurpleAccountSetPassword(account_id, server_account.password)
 
-				self._purple.PurpleAccountSetEnabled(account_id, "gtk-gaim", 1)
+					self._purple.PurpleAccountSetEnabled(account_id, "gtk-gaim", 1)
 
-				status = self._purple.PurpleSavedstatusFind(server_account.status)
-				self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
-				if server_account.icon and server_account.icon != '':
-					self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
-
-
-
+					status = self._purple.PurpleSavedstatusFind(server_account.status)
+					self._purple.PurpleSavedstatusSetMessage(status, server_account.message or "")
+					if server_account.icon and server_account.icon != '':
+						self._purple.PurpleAccountSetBuddyIconPath(account_id, server_account.icon)
+				except dbus.exceptions.DBusException:
+					print "Error: Lost dbus connection on pidgin normal sync."
+					return
 
 				self.set_newest_timestamp(server_account.updated_timestamp)
 				print "Normal Sync: Account added(new from server): " + server_account.name
@@ -823,15 +875,25 @@ class TomboySync(BaseSync):
 		if self._notes.has_key(note_guid):
 			return
 
+		# Get the note info from dbus, and return if we can't
+		new_note_title, new_note_body, new_note_tags = None, None, None
+		try:
+			new_note_title = str(self._tomboy.GetNoteTitle(note))
+			new_note_body = str(self._tomboy.GetNoteCompleteXml(note))
+			new_note_tags = self._tomboy.GetTagsForNote(note)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when adding note."
+			return
+
 		# Save the note
 		tomboy_note = TomboyNote()
 		tomboy_note.guid = note_guid
 		tomboy_note.user_id = self._user.id
-		tomboy_note.name = str(self._tomboy.GetNoteTitle(note))
-		tomboy_note.body = base64.b64encode(str(self._tomboy.GetNoteCompleteXml(note)))
+		tomboy_note.name = new_note_title
+		tomboy_note.body = base64.b64encode(new_note_body)
 		tomboy_note.created_timestamp = None
 		tags = []
-		for tag in self._tomboy.GetTagsForNote(note):
+		for tag in new_note_tags:
 			tags.append(str(tag))
 		tomboy_note.tag = str.join(', ', tags)
 		if save_now:
@@ -858,8 +920,17 @@ class TomboySync(BaseSync):
 			print "no note with guid: " + note_guid
 			return
 
+		# Get the note info from dbus, and return if we can't
+		try:
+			new_note_title = str(self._tomboy.GetNoteTitle(note))
+			new_note_body = str(self._tomboy.GetNoteCompleteXml(note))
+			new_note_tags = self._tomboy.GetTagsForNote(note)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when updating note."
+			return
+
 		# Skip the event if the content has not changed
-		new_body = str(self._tomboy.GetNoteCompleteXml(note))
+		new_body = new_note_body
 		old_body = base64.b64decode(self._notes[note_guid].body)
 		if new_body.split('<note-content')[1].split('</note-content>')[0] == \
 			old_body.split('<note-content')[1].split('</note-content>')[0]:
@@ -867,10 +938,10 @@ class TomboySync(BaseSync):
 
 		# Save the changes to the note
 		tomboy_note = self._notes[note_guid]
-		tomboy_note.name = str(self._tomboy.GetNoteTitle(note))
+		tomboy_note.name = new_note_title
 		tomboy_note.body = base64.b64encode(new_body)
 		tags = []
-		for tag in self._tomboy.GetTagsForNote(note):
+		for tag in new_note_tags:
 			tags.append(str(tag))
 		tomboy_note.tag = str.join(', ', tags)
 
@@ -881,9 +952,12 @@ class TomboySync(BaseSync):
 			self.set_newest_timestamp(tomboy_note.updated_timestamp)
 		except Exception, err:
 			if str(err) == "HTTP Error 404: Not Found":
-				self._tomboy.HideNote(note)
-				self._tomboy.DeleteNote(note)
-				self._notes.pop(note_guid)
+				try:
+					self._tomboy.HideNote(note)
+					self._tomboy.DeleteNote(note)
+				except dbus.exceptions.DBusException:
+					self._notes.pop(note_guid)
+					return
 
 		print "Server: Note updated: " + tomboy_note.name
 
@@ -918,8 +992,12 @@ class TomboySync(BaseSync):
 
 		# Add all the local tomboy notes
 		self._notes = {}
-		for note in self._tomboy.ListAllNotes():
-			self.add_note(note, False)
+		try:
+			for note in self._tomboy.ListAllNotes():
+				self.add_note(note, False)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when on tomboy first sync."
+			return
 
 		# Find the notes on the server that are newer or updated
 		newest_timestamp = self.get_newest_timestamp() or 0
@@ -948,7 +1026,11 @@ class TomboySync(BaseSync):
 
 					if tomboy_note.body != server_note.body or tomboy_note.name != server_note.name or tomboy_note.tag != server_note.tag:
 						account_changed = True
-						self._tomboy.SetNoteCompleteXml("note://tomboy/" + tomboy_note.guid, base64.b64decode(server_note.body))
+						try:
+							self._tomboy.SetNoteCompleteXml("note://tomboy/" + tomboy_note.guid, base64.b64decode(server_note.body))
+						except dbus.exceptions.DBusException:
+							print "Error: Lost dbus connection when on tomboy first sync."
+							return
 
 					self._notes[tomboy_note.guid] = server_note
 
@@ -964,8 +1046,12 @@ class TomboySync(BaseSync):
 
 				server_note = TomboyNote.find(server_note.id, user_id=server_note.user_id)
 				self._notes[server_note.guid] = server_note
-				note = self._tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
-				self._tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
+				try:
+					note = self._tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
+					self._tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
+				except dbus.exceptions.DBusException:
+					print "Error: Lost dbus connection when on tomboy first sync."
+					return
 				print "First Sync: Note added(new from server): " + server_note.name
 				count_new_notes += 1
 
@@ -1014,7 +1100,11 @@ class TomboySync(BaseSync):
 
 						account_changed = True
 						tomboy_note = server_note
-						self._tomboy.SetNoteCompleteXml("note://tomboy/" + server_note.guid, base64.b64decode(server_note.body))
+						try:
+							self._tomboy.SetNoteCompleteXml("note://tomboy/" + server_note.guid, base64.b64decode(server_note.body))
+						except dbus.exceptions.DBusException:
+							print "Error: Lost dbus connection when on tomboy normal sync."
+							return
 
 					self._notes[tomboy_note.guid] = server_note
 
@@ -1031,8 +1121,14 @@ class TomboySync(BaseSync):
 				self._ignore_event[server_note.guid] += 1
 
 				self._notes[server_note.guid] = server_note
-				note = self._tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
-				self._tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
+				note = None
+				try:
+					note = self._tomboy.CreateNamedNoteWithUri(server_note.name, "note://tomboy/" + server_note.guid)
+					self._tomboy.SetNoteCompleteXml(note, base64.b64decode(server_note.body))
+				except dbus.exceptions.DBusException:
+					print "Error: Lost dbus connection when on tomboy normal sync."
+					return
+
 				self.set_newest_timestamp(server_note.updated_timestamp)
 				print "Normal Sync: Note added(new from server): " + server_note.name
 				self.notify("Added tomboy note", server_note.name)

@@ -2,7 +2,7 @@ class UsersController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
   # FIXME: Authentication should be on for avatar and background
-  before_filter :authenticate, :except => [ 'ensure_user_exists', 'new', 'create', 'login', 'avatar', 'background' ]
+  before_filter :authenticate, :except => [ 'ensure_authorized', 'new', 'create', 'login', 'avatar', 'background' ]
 
   # GET /users/1
   # GET /users/1.json
@@ -134,43 +134,22 @@ class UsersController < ApplicationController
     end
   end
 
-  def ensure_user_exists
+  def ensure_authorized
     # Get the params
     name = params['name']
     password = params['password']
-    email = params['email']
-
-    # Determine if the user exists and can login
-    user_exists = user_exists?(name)
-    valid_login = valid_login?(name, password)
 
     respond_to do |format|
-      if user_exists && valid_login
+      if valid_login?(name, password)
         flash[:notice] = 'User can login.'
         format.html { head :ok }
         format.json  { head :ok }
         format.xml  { head :ok }
-      elsif user_exists && valid_login == false
+      else
         flash[:notice] = 'Invalid login.'
         format.html { head :unauthorized }
         format.json  { head :unauthorized }
         format.xml  { head :unauthorized }
-      elsif user_exists == false
-        user = User.new
-        user.name = name
-        user.email = email
-        user.password = password
-        user.password_confirmation = password
-        if user.save
-          flash[:notice] = 'User was created, and can login.'
-          format.html { head :ok }
-          format.json  { head :ok }
-          format.xml  { head :ok }
-        else
-          format.html { head :unprocessable_entity }
-          format.json  { render :json => user.errors, :status => :unprocessable_entity }
-          format.xml  { render :xml => user.errors, :status => :unprocessable_entity }
-        end
       end
     end
   end

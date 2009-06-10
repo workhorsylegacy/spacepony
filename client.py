@@ -1203,17 +1203,13 @@ class Syncer(threading.Thread):
 								dbus_interface = "org.gnome.Tomboy.RemoteControl",
 								signal_name = "NoteDeleted")
 
-		# Create the user or make sure it exists
-		self._user = None
+		# Exit if our name or password is wrong
 		try:
-			User.get('ensure_user_exists', name=self._username, password=self._password, email=self._email)
+			User.get('ensure_authorized', name=self._username, password=self._password)
 		except connection.UnauthorizedAccess, err:
-			print 'Invalid login.'
-			exit(1)
-		except connection.ResourceInvalid, err:
-			print "Validation Failed:"
-			for error in util.xml_to_dict(err.response.body)['error']:
-				print "    " + error
+			print 'Invalid login. Exiting ...'
+			self._stopevent.set()
+			if main_loop: main_loop.quit()
 			exit(1)
 
 		# Get the user from the server

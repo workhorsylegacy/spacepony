@@ -3,7 +3,7 @@ ActionController::Routing::Routes.draw do |map|
                                                 :get_meta => :get }
   map.resources :pidgin_accounts, :collection => { :get_newer => :get, 
                                                    :get_meta => :get }
-  map.resources :users, :collection => { :ensure_user_exists =>:get, 
+  map.resources :users, :collection => { :ensure_authorized => :get, 
                                          :get_logged_in_user => :get, 
                                          :login => :get, 
                                          :logout => :get }, 

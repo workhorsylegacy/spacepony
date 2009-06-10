@@ -70,14 +70,20 @@ class BaseSync(object):
 			return
 
 		self._newest_timestamp = value
-		f = open('newest_' + self._app_name + '_timestamp', 'w')
+
+		dot_folder = os.path.expanduser('~') + '/.spacepony/'
+		if not os.path.isdir(dot_folder): os.mkdir(dot_folder)
+
+		f = open(dot_folder + 'newest_' + self._app_name + '_timestamp', 'w')
 		f.write(str(self._newest_timestamp))
 		f.flush()
 		f.close()
 
 	def get_newest_timestamp(self):
-		if self._newest_timestamp == None and os.path.exists('newest_' + self._app_name + '_timestamp'):
-			f = open('newest_' + self._app_name + '_timestamp', 'r')
+		dot_folder = os.path.expanduser('~') + '/.spacepony/'
+
+		if self._newest_timestamp == None and os.path.exists(dot_folder + 'newest_' + self._app_name + '_timestamp'):
+			f = open(dot_folder + 'newest_' + self._app_name + '_timestamp', 'r')
 			try:
 				value = decimal.Decimal(f.read())
 				if value != '':

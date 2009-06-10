@@ -4,6 +4,7 @@ import dbus, gobject, dbus.glib, gconf
 import base64, time, decimal, mimetypes
 import sys, os, threading, traceback, commands, signal
 import ctypes, pynotify, pyinotify
+import ConfigParser
 from xml2dict import *
 from pyactiveresource.activeresource import ActiveResource
 from pyactiveresource import util
@@ -40,11 +41,33 @@ def quit_program(signl, frme):
 	if main_loop: main_loop.quit()
 signal.signal(signal.SIGINT, quit_program)
 
-USERNAME = "mattjones"
-PASSWORD = "password"
-EMAIL = "mattjones@workhorsy.org"
-SERVER_SOCKET = "localhost:3000"
-SERVER_ADDRESS = "http://" + USERNAME + ":" + PASSWORD + "@" + SERVER_SOCKET
+# Add a blank config file if there is none
+config_folder = os.path.expanduser('~/.spacepony/')
+config_file = config_folder + 'user.cfg'
+if not os.path.isdir(config_folder): os.mkdir(config_folder)
+if not os.path.isfile(config_file):
+	config = ConfigParser.RawConfigParser()
+	config.add_section('user')
+	config.set('user', 'name', 'unknown')
+	config.set('user', 'password', 'unknown')
+	config.set('user', 'email', 'unknown')
+	with open(config_file, 'wb') as configfile:
+		config.write(configfile)
+
+
+# Get the user name, password, and email
+USERNAME, PASSWORD, EMAIL, SERVER_SOCKET, SERVER_ADDRESS = None, None, None, None, None
+try:
+	config = ConfigParser.RawConfigParser()
+	config.read(config_file)
+	USERNAME = config.get('user', 'name')
+	PASSWORD = config.get('user', 'password')
+	EMAIL = config.get('user', 'email')
+	SERVER_SOCKET = "localhost:3000"
+	SERVER_ADDRESS = "http://" + USERNAME + ":" + PASSWORD + "@" + SERVER_SOCKET
+except Exception:
+	print "Error when parsing config file: '" + config_file + "'. Exiting ..."
+	exit(1)
 
 # Create the models
 class User(ActiveResource):
@@ -1154,6 +1177,8 @@ class TomboySync(BaseSync):
 Syncs notes to and from the server
 """
 class Syncer(threading.Thread):
+	# FIXME: Change this to use the http auth name and password instead
+	#		The name, password, and email should not be passed in here
 	def __init__(self, username, password, email):
 		self._stopevent = threading.Event()
 		threading.Thread.__init__(self, name='Syncer')
@@ -1207,7 +1232,7 @@ class Syncer(threading.Thread):
 		try:
 			User.get('ensure_authorized', name=self._username, password=self._password)
 		except connection.UnauthorizedAccess, err:
-			print 'Invalid login. Exiting ...'
+			print "Invalid login. Please update config file at: '" + config_file + "'. Exiting ..."
 			self._stopevent.set()
 			if main_loop: main_loop.quit()
 			exit(1)

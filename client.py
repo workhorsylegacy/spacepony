@@ -105,6 +105,12 @@ class GConfFileSync(BaseSync):
 		self._gconf_client.remove_dir('/')
 
 	def _save_background(self, filename):
+		# if there is no file, remove the background
+		if filename == None or filename == '':
+			User.delete('background/' + str(self._user.id))
+			print "Server: Background deleted"
+			return
+
 		# Read the file into a string
 		f = open(filename, 'rb')
 		file_data = f.read()
@@ -135,7 +141,7 @@ class GConfFileSync(BaseSync):
 		background = Bin(User.get(str(self._user.id) + '/background'))
 		self._user.background_id = background.id
 		self.set_newest_timestamp(background.updated_timestamp)
-		print "Server: File saved: " + filename
+		print "Server: Background saved: " + filename
 
 	def _on_gconf_key_changed(self, client, id, entry, data):
 		# skip this event if it is in the list of ignores

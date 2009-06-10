@@ -194,6 +194,23 @@ class UsersController < ApplicationController
       end
     end
 
+    if request.delete?
+        @user.send(name).destroy()
+        respond_to do |format|
+          flash[:notice] = "The background was successfully deleted."
+          format.html { redirect_to(:action => name, :id => @user.id) }
+          format.json  { head :ok }
+          format.xml  { head :ok }
+          format.jpeg { head :ok }
+          format.jpg { head :ok }
+          format.jpe { head :ok }
+          format.gif { head :ok }
+          format.png { head :ok }
+          format.svg { head :ok }
+        end
+        return
+    end
+
     return unless request.post?
 
     file_body, file_mime_type, file_original_name = nil, nil, nil

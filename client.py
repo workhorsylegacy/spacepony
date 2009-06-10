@@ -418,6 +418,7 @@ class PidginSync(BaseSync):
 		self._accounts = {}
 		self._user = user
 		self._purple = None
+		self._obj = None
 		self._bus = bus
 
 	def is_pidgin_running(self):
@@ -446,9 +447,8 @@ class PidginSync(BaseSync):
 		if needs_dbus:
 			self._purple = None
 			try:
-				bus = dbus.SessionBus()
-				obj = bus.get_object("im.pidgin.purple.PurpleService", "/im/pidgin/purple/PurpleObject")
-				self._purple = dbus.Interface(obj, "im.pidgin.purple.PurpleInterface")
+				self._obj = self._bus.get_object("im.pidgin.purple.PurpleService", "/im/pidgin/purple/PurpleObject")
+				self._purple = dbus.Interface(self._obj, "im.pidgin.purple.PurpleInterface")
 			except dbus.exceptions.DBusException:
 				pass
 
@@ -811,14 +811,20 @@ class TomboySync(BaseSync):
 		self._notes = {}
 		self._user = user
 		self._tomboy = None
+		self._obj = None
 		self._bus = bus
 
 	def is_tomboy_running(self):
 		try:
 			self._bus.get_name_owner('org.gnome.Tomboy')
-			return True
+
+			return self.is_tomboy_version_valid()
 		except dbus.exceptions.DBusException:
 			return False
+
+	def is_tomboy_version_valid(self):
+		self._ensure_valid_dbus_connection()
+		return self._obj._introspect_method_map.has_key('org.gnome.Tomboy.RemoteControl.CreateNamedNoteWithUri')
 
 	'''
 		Returns true if the self._tomboy dbus object was 
@@ -839,10 +845,9 @@ class TomboySync(BaseSync):
 		if needs_dbus:
 			self._tomboy = None
 			try:
-				bus = dbus.SessionBus()
-				obj = bus.get_object("org.gnome.Tomboy", 
-									"/org/gnome/Tomboy/RemoteControl")
-				self._tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+				self._obj = self._bus.get_object("org.gnome.Tomboy", "/org/gnome/Tomboy/RemoteControl")
+				self._tomboy = dbus.Interface(self._obj, "org.gnome.Tomboy.RemoteControl")
+				self._tomboy.Value() # This is called to populate the obj._introspect_method_map
 			except dbus.exceptions.DBusException:
 				pass
 
@@ -1289,10 +1294,12 @@ class Syncer(threading.Thread):
 
 	def onNoteAdded(self, note):
 		if self._needs_first_sync == True: return
+		if not self._tomboy_syncer.is_tomboy_version_valid(): return
 		self._tomboy_syncer.add_note(note)
 
 	def onNoteSaved(self, note):
 		if self._needs_first_sync == True: return
+		if not self._tomboy_syncer.is_tomboy_version_valid(): return
 		self._tomboy_syncer.update_note(note)
 
 	# FIXME: Figure out what the second argument is. There is no documentation

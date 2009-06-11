@@ -1232,7 +1232,7 @@ class Syncer(threading.Thread):
 		try:
 			User.get('ensure_authorized', name=self._username, password=self._password)
 		except connection.UnauthorizedAccess, err:
-			print "Invalid login. Please update config file at: '" + config_file + "'. Exiting ..."
+			print "Invalid login. Please update config file at '" + config_file + "', or create account on server. Exiting ..."
 			self._stopevent.set()
 			if main_loop: main_loop.quit()
 			exit(1)

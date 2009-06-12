@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import dbus, gobject, dbus.glib, gconf
+from dbus.mainloop.glib import DBusGMainLoop
 import base64, time, decimal, mimetypes
 import sys, os, threading, traceback, commands, signal
 import ctypes, pynotify, pyinotify
@@ -26,16 +27,16 @@ if not pynotify.init("Sync notification"):
 	sys.exit(1)
 
 # Make it so the dbus threads and python threads work at the same time
-gobject.threads_init()
-dbus.glib.init_threads()
-main_loop = None
+DBusGMainLoop(set_as_default = True)
+is_running = True
 syncer = None
 
 # Have the program quit when ctrl+c is pressed
 def quit_program(signl, frme):
 	print "Exiting ..."
 	if syncer: syncer.stop()
-	if main_loop: main_loop.quit()
+	is_running = False
+	exit(1)
 signal.signal(signal.SIGINT, quit_program)
 
 # Add a blank config file if there is none
@@ -1231,7 +1232,7 @@ class Syncer(threading.Thread):
 		except connection.UnauthorizedAccess, err:
 			print "Invalid login. Please update config file at '" + config_file + "', or create account on server. Exiting ..."
 			self._stopevent.set()
-			if main_loop: main_loop.quit()
+			is_running = False
 			exit(1)
 
 		# Get the user from the server
@@ -1331,13 +1332,17 @@ class Syncer(threading.Thread):
 		if self._needs_first_sync == True: return
 		self._tomboy_syncer.remove_note(note)
 
-print "client running ..."
-syncer = Syncer(USERNAME, PASSWORD, EMAIL)
-syncer.start()
+def start():
+	print "client running ..."
+	syncer = Syncer(USERNAME, PASSWORD, EMAIL)
+	syncer.start()
 
-# Wait here and run events
-main_loop = gobject.MainLoop()
-main_loop.run()
+	# Wait here and run events
+	while is_running:
+		time.sleep(1)
+
+if __name__ == "__main__":
+	start()
 
 
 

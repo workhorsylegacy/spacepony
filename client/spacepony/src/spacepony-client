@@ -2,4 +2,6 @@
 
 from spacepony import client
 
+client.start()
+
 

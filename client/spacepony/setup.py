@@ -9,11 +9,14 @@ setup (name = 'spacepony',
     author = 'Matthew Brennan Jones', 
     author_email = 'mattjones@workhorsy.org', 
     url = 'http://launchpad.net/spacepony', 
-    platforms = ['any'], 
+    platforms = 'linux', 
+
+    scripts = ['src/spacepony-client'], 
 
     license = 'AGPLv3+', 
 
-    package_dir = {'spacepony': 'client/src'}, 
-    packages = ['spacepony'], 
+    packages=['spacepony'],
+    package_dir={'spacepony': 'src'},
+
 )
 

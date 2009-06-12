@@ -54,11 +54,11 @@ bzr branch lp:spacepony
 cd spacepony
 
 # install pyActiveResource
-cd pyactiveresource
+cd client/pyactiveresource/src
 sudo python setup.py install
-cd ..
+cd ../src/
 
-# In the file client.py, update the server socket with the ip address and port
+# In the file client/spacepony/src/client.py, update the server socket with the ip address and port
 SERVER_SOCKET = "192.168.1.101:3000"
 
 # Make sure pidgin and tomboy are running on the client

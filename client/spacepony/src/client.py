@@ -17,9 +17,6 @@ try:
 except:
 	pass
 
-# Move the path to the location of the current file
-os.chdir(os.sys.path[0])
-
 # Initialize the mime types
 mimetypes.init()
 

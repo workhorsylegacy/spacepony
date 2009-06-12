@@ -49,6 +49,7 @@ if not os.path.isfile(config_file):
 	config.set('user', 'name', 'unknown')
 	config.set('user', 'password', 'unknown')
 	config.set('user', 'email', 'unknown')
+	config.set('user', 'domain', 'localhost:3000')
 	with open(config_file, 'wb') as configfile:
 		config.write(configfile)
 
@@ -61,7 +62,7 @@ try:
 	USERNAME = config.get('user', 'name')
 	PASSWORD = config.get('user', 'password')
 	EMAIL = config.get('user', 'email')
-	SERVER_SOCKET = "localhost:3000"
+	SERVER_SOCKET = config.get('user', 'domain')
 	SERVER_ADDRESS = "http://" + USERNAME + ":" + PASSWORD + "@" + SERVER_SOCKET
 except Exception:
 	print "Error when parsing config file: '" + config_file + "'. Exiting ..."

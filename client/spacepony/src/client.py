@@ -28,6 +28,8 @@ if not pynotify.init("Sync notification"):
 
 # Make it so the dbus threads and python threads work at the same time
 DBusGMainLoop(set_as_default = True)
+gobject.threads_init()
+dbus.glib.init_threads()
 is_running = True
 syncer = None
 
@@ -1338,9 +1340,11 @@ def start():
 	syncer = Syncer(USERNAME, PASSWORD, EMAIL)
 	syncer.start()
 
-	# Wait here and run events
-	while is_running:
-		time.sleep(1)
+	# Loop until manually terminated
+	try:
+		gobject.MainLoop().run()
+	except KeyboardInterrupt:
+		sys.exit(1)
 
 if __name__ == "__main__":
 	start()

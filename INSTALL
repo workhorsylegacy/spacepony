@@ -11,9 +11,7 @@ gedit config/database.yml
 
 # setup the server
 sudo apt-get install mysql-server mysql-client ruby ruby-dev rake rubygems rails
-sudo gem install rails
-sudo gem install mysql
-sudo gem install ezcrypto
+sudo gem install rails mysql ezcrypto mongrel
 rake db:create:all
 rake db:migrate
 

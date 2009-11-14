@@ -28,6 +28,8 @@ bus.add_signal_receiver(on_download_complete,
 
 # Loop until manually terminated
 try:
+	print "client running ..."
 	gobject.MainLoop().run()
 except KeyboardInterrupt:
 	sys.exit(1)
+

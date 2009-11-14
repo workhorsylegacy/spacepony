@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <overlay id="sample" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 	<script src="sample.js"/>
+	<!-- FIXME: Change this to not be here -->
 	<statusbar id="status-bar">
-		<statusbarpanel id="my-panel" label="Hello, pie" />
+		<statusbarpanel id="my-panel" label="Download a file to send the dbus event." />
 	</statusbar>
 </overlay>
 

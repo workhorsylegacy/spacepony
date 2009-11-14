@@ -1,16 +1,18 @@
 
 /*
-see here for how to use:
+See here for how to use:
 https://developer.mozilla.org/en/Building_an_Extension
+
+When developing, link to the extensions dir
+ln -s ~/Desktop/sample/ ~/.mozilla/firefox/uryzgmqw.dev/extensions/spacepony@workhorsy.org
 */
 var dbusnotify = {
 	onLoad: function() {
-		// initialization code
 		this.initialized = true;
 		this.strings = document.getElementById("dbusnotify-strings");
 	
 		this.dlMgr = Components.classes["@mozilla.org/download-manager;1"]
-							   .getService(Components.interfaces.nsIDownloadManager);
+						.getService(Components.interfaces.nsIDownloadManager);
 		this.dlMgr.addListener(dbusnotify);
 	},
 
@@ -21,31 +23,32 @@ var dbusnotify = {
 			var path = '';
 			try {
 				path = (new DIR_SERVICE()).get("ProfD", Components.interfaces.nsIFile).path;
-			} catch (e) {
-				alert("error finding dbusnotify.py: " + error);
+			} catch(exception) {
+				alert("error finding dbusnotify.py: " + exception);
 				return;
 			}
 			path += "/extensions/spacepony@workhorsy.org/chrome/content/dbusnotify.py";
 
-			// Load the python script into an exec
-			var exec = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsILocalFile);
-			exec.initWithPath(path);
+			// https://developer.mozilla.org/En/Code_snippets/Running_applications
+			// create an nsILocalFile for the executable
+			var file = Components.classes["@mozilla.org/file/local;1"]
+						.createInstance(Components.interfaces.nsILocalFile);
+			file.initWithPath(path);
 
 			// If it failed, show an error
-			if(exec.exists()) {
-				
-			} else {
+			if(!file.exists()) {
 				alert("Error running dbusnotify.py");
 				return;
 			}
 
-			// Run the exec in a process
-			var process = Components.classes["@mozilla.org/process/util;1"].createInstance(Components.interfaces.nsIProcess);
+			// Create and run the process
+			var process = Components.classes["@mozilla.org/process/util;1"]
+							.createInstance(Components.interfaces.nsIProcess);
 			var args = ["Download Complete", aDownload.targetFile.path];
-			process.init(exec);
+			process.init(file);
 			var exitvalue = process.run(true, args, args.length);
-		} catch (e) {
-			alert("DBus Notification Failed" + e);
+		} catch(exception) {
+			alert("DBus Notification Failed" + exception);
 			return;
 		}
 	},

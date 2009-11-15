@@ -10,6 +10,7 @@ cd spacepony/server
 gedit config/database.yml
 
 # setup the server
+rake rails:update
 sudo apt-get install mysql-server mysql-client ruby ruby-dev rake rubygems rails
 sudo gem install rails mysql ezcrypto mongrel
 rake db:create:all

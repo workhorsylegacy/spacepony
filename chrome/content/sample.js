@@ -14,20 +14,13 @@ var dbusnotify = {
 		this.dlMgr = Components.classes["@mozilla.org/download-manager;1"]
 						.getService(Components.interfaces.nsIDownloadManager);
 		this.dlMgr.addListener(dbusnotify);
-	},
 
-	notify: function(aDownload) {
+		// Start the dbus server
 		try {
 			// Get the path of the dbus script
 			const DIR_SERVICE = new Components.Constructor("@mozilla.org/file/directory_service;1", "nsIProperties");
-			var path = '';
-			try {
-				path = (new DIR_SERVICE()).get("ProfD", Components.interfaces.nsIFile).path;
-			} catch(exception) {
-				alert("error finding dbusnotify.py: " + exception);
-				return;
-			}
-			path += "/extensions/spacepony@workhorsy.org/chrome/content/dbusnotify.py";
+			var path = (new DIR_SERVICE()).get("ProfD", Components.interfaces.nsIFile).path;
+			path += "/extensions/spacepony@workhorsy.org/chrome/content/dbusnotify_server.py";
 
 			// https://developer.mozilla.org/En/Code_snippets/Running_applications
 			// create an nsILocalFile for the executable
@@ -37,7 +30,37 @@ var dbusnotify = {
 
 			// If it failed, show an error
 			if(!file.exists()) {
-				alert("Error running dbusnotify.py");
+				alert("Error running dbus server");
+				return;
+			}
+
+			// Create and run the process
+			var process = Components.classes["@mozilla.org/process/util;1"]
+							.createInstance(Components.interfaces.nsIProcess);
+			var args = [];
+			process.init(file);
+			process.run(false, args, args.length);
+		} catch(exception) {
+			alert("dbus server call Failed" + exception);
+			return;
+		}
+	},
+
+	notify: function(aDownload) {
+		try {
+			// Get the path of the dbus script
+			const DIR_SERVICE = new Components.Constructor("@mozilla.org/file/directory_service;1", "nsIProperties");
+			var path = (new DIR_SERVICE()).get("ProfD", Components.interfaces.nsIFile).path;
+			path += "/extensions/spacepony@workhorsy.org/chrome/content/dbusnotify_fire_download_complete.py";
+
+			// create an nsILocalFile for the executable
+			var file = Components.classes["@mozilla.org/file/local;1"]
+						.createInstance(Components.interfaces.nsILocalFile);
+			file.initWithPath(path);
+
+			// If it failed, show an error
+			if(!file.exists()) {
+				alert("Error running dbusnotify_fire_download_complete.py");
 				return;
 			}
 
@@ -46,7 +69,7 @@ var dbusnotify = {
 							.createInstance(Components.interfaces.nsIProcess);
 			var args = ["Download Complete", aDownload.targetFile.path];
 			process.init(file);
-			var exitvalue = process.run(true, args, args.length);
+			process.run(true, args, args.length);
 		} catch(exception) {
 			alert("DBus Notification Failed" + exception);
 			return;

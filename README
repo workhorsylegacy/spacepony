@@ -35,11 +35,11 @@ sudo apt-get remove tomboy
 # Download tomboy source, uncompress it, patch it, build, and install
 sudo apt-get install intltool mono-gmcs mono-devel libgtk2.0-dev
 cd ~
-wget http://download.gnome.org/sources/tomboy/0.15/tomboy-0.15.0.tar.gz
-tar -xzvf tomboy-0.15.0.tar.gz
-wget http://workhorsy.org/junk/create_named_note_with_uri.patch
-patch -p0 < create_named_note_with_uri.patch
-cd tomboy-0.15.0
+wget http://download.gnome.org/sources/tomboy/1.0/tomboy-1.0.0.tar.gz
+tar -xzvf tomboy-1.0.0.tar.gz
+wget http://workhorsy.org/junk/create_named_note_with_uri_diff.patch
+patch -p0 < create_named_note_with_uri_diff.patch
+cd tomboy-1.0.0
 ./configure
 make
 sudo make install

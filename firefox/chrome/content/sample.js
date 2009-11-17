@@ -102,6 +102,7 @@ var BookmarkManager = {
 
 	InitialSync: function() {
 		//alert("InitialSync");
+/*
 		var bmsvc = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
 		                    .getService(Components.interfaces.nsINavBookmarksService);
 		var ios = Components.classes["@mozilla.org/network/io-service;1"]
@@ -110,6 +111,7 @@ var BookmarkManager = {
 		var newFolderId = bmsvc.createFolder(menuFolder, "pies of mud", bmsvc.DEFAULT_INDEX);
 		var uri = ios.newURI("http://google.com/", null, null);
 		var newBkmkId = bmsvc.insertBookmark(newFolderId, uri, bmsvc.DEFAULT_INDEX, "google");
+*/
 	}, 
 };
 

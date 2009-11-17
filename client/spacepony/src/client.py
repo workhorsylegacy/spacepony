@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import dbus, gobject, dbus.glib, gconf
+import dbus, dbus.service, dbus.glib
 from dbus.mainloop.glib import DBusGMainLoop
+import gobject, gconf
 import base64, time, decimal, mimetypes
 import sys, os, threading, traceback, commands, signal
 import ctypes, pynotify, pyinotify
@@ -83,6 +84,44 @@ class TomboyNote(ActiveResource):
 class Bin(ActiveResource):
 	_site = SERVER_ADDRESS
 
+
+class FireFoxDBusServer(dbus.service.Object):
+	FIREFOX_DBUS_INTERFACE = 'org.mozilla.firefox.DBus'
+	FIREFOX_DBUS_PATH = '/org/mozilla/firefox/DBus'
+
+	# Events
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ss')
+	def DownloadComplete(self, title, subject):
+		print "download complete: " + title + " - " + subject
+
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ssss')
+	def BookmarkAdded(self, folder, guid, title, uri):
+		print "bookmark added: " + folder + " - " + title + " - " + uri
+
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='s')
+	def BookmarkRemoved(self, guid):
+		print "bookmark removed: " + guid
+
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
+	def BookmarkChanged(self, guid, property_name, property_value):
+		print "bookmark changed: " + guid + " - " + property_name + " - " + property_value
+
+	# Event emitters
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='ss', out_signature='')
+	def emitDownloadComplete(self, title, subject):
+		self.DownloadComplete(title, subject)
+
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='ssss', out_signature='')
+	def emitBookmarkAdded(self, folder, guid, title, uri):
+		self.BookmarkAdded(folder, guid, title, uri)
+
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='s', out_signature='')
+	def emitBookmarkRemoved(self, guid):
+		self.BookmarkRemoved(guid)
+
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='sss', out_signature='')
+	def emitBookmarkChanged(self, guid, property_name, property_value):
+		self.BookmarkChanged(guid, property_name, property_value)
 
 class BaseSync(object):
 	def __init__(self, app_name):
@@ -1336,11 +1375,17 @@ class Syncer(threading.Thread):
 		self._tomboy_syncer.remove_note(note)
 
 def start():
-	print "client running ..."
+	# Start the firefox server
+	session_bus = dbus.SessionBus()
+	name = dbus.service.BusName(FireFoxDBusServer.FIREFOX_DBUS_INTERFACE, session_bus)
+	object = FireFoxDBusServer(session_bus, '/FireFoxDBus')
+
+	# Start the syncer
 	syncer = Syncer(USERNAME, PASSWORD, EMAIL)
 	syncer.start()
 
 	# Loop until manually terminated
+	print "client running ..."
 	try:
 		gobject.MainLoop().run()
 	except KeyboardInterrupt:

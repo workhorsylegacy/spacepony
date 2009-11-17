@@ -1,0 +1,24 @@
+<h1>Listing firefox bookmarks for <%=h @user.name %></h1>
+
+<table>
+  <tr>
+    <th>Title</th>
+    <th>Uri</th>
+    <th>Folder</th>
+  </tr>
+
+<% @firefox_bookmarks.each do |firefox_bookmark| %>
+  <tr>
+    <td><%=h firefox_bookmark.title %></td>
+    <td><%=h firefox_bookmark.uri %></td>
+    <td><%=h firefox_bookmark.folder %></td>
+    <td><%= link_to 'Show', :action => :show, :id => firefox_bookmark.id, :user_id => @user.id %></td>
+    <td><%= link_to 'Edit', :action => :edit, :id => firefox_bookmark.id, :user_id => @user.id %></td>
+    <td><%= link_to 'Destroy', {:action => :destroy, :id => firefox_bookmark.id, :user_id => @user.id}, :confirm => 'Are you sure?', :method => :delete %></td>
+  </tr>
+<% end %>
+</table>
+
+<br />
+
+<%= link_to 'New firefox bookmark', :action => :new, :user_id => @user.id %>

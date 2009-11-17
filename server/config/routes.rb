@@ -1,4 +1,6 @@
 ActionController::Routing::Routes.draw do |map|
+  map.resources :firefox_bookmarks
+
   map.resources :tomboy_notes, :collection => { :get_newer => :get, 
                                                 :get_meta => :get }
   map.resources :pidgin_accounts, :collection => { :get_newer => :get, 

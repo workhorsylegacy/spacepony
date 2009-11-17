@@ -19,7 +19,7 @@ development:
   encoding: utf8
   database: space_pony_development
   username: root
-  password: 
+  password: letmein
   socket: /var/run/mysqld/mysqld.sock # debian/ubuntu
 #  socket: /var/lib/mysql/mysql.sock    # fedora
 
@@ -31,7 +31,7 @@ test:
   encoding: utf8
   database: space_pony_test
   username: root
-  password: 
+  password: letmein
   socket: /var/run/mysqld/mysqld.sock # debian/ubuntu
 #  socket: /var/lib/mysql/mysql.sock    # fedora
 
@@ -40,7 +40,7 @@ production:
   encoding: utf8
   database: space_pony_production
   username: root
-  password: 
+  password: letmein
   socket: /var/run/mysqld/mysqld.sock # debian/ubuntu
 #  socket: /var/lib/mysql/mysql.sock    # fedora
 

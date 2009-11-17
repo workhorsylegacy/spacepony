@@ -1,0 +1,24 @@
+
+<p>
+  <b>Title:</b>
+  <%=h @firefox_bookmark.title %>
+</p>
+
+<p>
+  <b>Uri:</b>
+  <%=h @firefox_bookmark.uri %>
+</p>
+
+<p>
+  <b>Guid:</b>
+  <%=h @firefox_bookmark.guid %>
+</p>
+
+<p>
+  <b>Folder:</b>
+  <%=h @firefox_bookmark.folder %>
+</p>
+
+
+<%= link_to 'Edit', :action => :edit, :id => @firefox_bookmark, :user_id => @user.id %> |
+<%= link_to 'Back', :action => :index, :user_id => @user.id %>

@@ -1,6 +1,7 @@
 
 
 class User < ActiveRecord::Base
+	has_many :firefox_bookmarks
 	has_many :pidgin_accounts
 	has_many :tomboy_notes
 	belongs_to :avatar, 

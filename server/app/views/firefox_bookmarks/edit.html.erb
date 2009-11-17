@@ -1,0 +1,28 @@
+<h1>Editing firefox bookmark</h1>
+
+<% form_for(@firefox_bookmark) do |f| %>
+  <%= f.error_messages %>
+  <%= f.hidden_field :user_id, :value => @user.id %>
+  <p>
+    <%= f.label :title %><br />
+    <%= f.text_field :title %>
+  </p>
+  <p>
+    <%= f.label :uri %><br />
+    <%= f.text_field :uri %>
+  </p>
+  <p>
+    <%= f.label :guid %><br />
+    <%= f.text_field :guid %>
+  </p>
+  <p>
+    <%= f.label :folder %><br />
+    <%= f.text_field :folder %>
+  </p>
+  <p>
+    <%= f.submit 'Update' %>
+  </p>
+<% end %>
+
+<%= link_to 'Show', :action => :show, :id => @firefox_bookmark, :user_id => @user.id %> |
+<%= link_to 'Back', :action => :index, :user_id => @user.id %>

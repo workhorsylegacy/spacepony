@@ -12,9 +12,31 @@ ln -s ~/Desktop/sample/ ~/.mozilla/firefox/uryzgmqw.dev/extensions/spacepony@wor
 var BookmarkManager = {
 	onBeginUpdateBatch: function() {},
 	onEndUpdateBatch: function() {},
-	onItemAdded: function(aItemId, aFolder, aIndex) { alert("onItemAdded"); },
-	onItemRemoved: function(aItemId, aFolder, aIndex) { alert("onItemRemoved"); },
-	onItemChanged: function(aBookmarkId, aProperty, aIsAnnotationProperty, aValue) { alert("onItemChanged"); },
+
+	onItemAdded: function(aItemId, aFolder, aIndex) {
+		// Send a dbus event to the server
+		Helper.RunProcess(
+		true, 
+		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_added.py", 
+		[String(aItemId), String(aFolder), String(aIndex)]);
+	},
+
+	onItemRemoved: function(aItemId, aFolder, aIndex) {
+		// Send a dbus event to the server
+		Helper.RunProcess(
+		true, 
+		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_removed.py", 
+		[String(aItemId), String(aFolder), String(aIndex)]);
+	},
+
+	onItemChanged: function(aBookmarkId, aProperty, aIsAnnotationProperty, aValue) {
+		// Send a dbus event to the server
+		Helper.RunProcess(
+		true, 
+		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_changed.py", 
+		[String(aBookmarkId), String(aProperty), String(aIsAnnotationProperty), String(aValue)]);
+	},
+
 	onItemVisited: function(aBookmarkId, aVisitID, time) {},
 	onItemMoved: function(aItemId, aOldParent, aOldIndex, aNewParent, aNewIndex) {},
 	QueryInterface: XPCOMUtils.generateQI([Components.interfaces.nsINavBookmarkObserver]), 
@@ -79,7 +101,7 @@ var DownloadManager = {
 		// Start the dbus server in a background process
 		Helper.RunProcess(
 		false, 
-		"/extensions/spacepony@workhorsy.org/chrome/content/dbusnotify_server.py", 
+		"/extensions/spacepony@workhorsy.org/chrome/content/server.py", 
 		[]);
 
 		// Tell the download manager to send events to the DownloadManager
@@ -92,7 +114,7 @@ var DownloadManager = {
 		// Send a dbus event to the server
 		Helper.RunProcess(
 		true, 
-		"/extensions/spacepony@workhorsy.org/chrome/content/dbusnotify_fire_download_complete.py", 
+		"/extensions/spacepony@workhorsy.org/chrome/content/fire_download_complete.py", 
 		["Download Complete", aDownload.targetFile.path]);
 	},
 
@@ -113,7 +135,7 @@ var DownloadManager = {
 var Program = {
 	onLoad: function() {
 		this.initialized = true;
-		//this.strings = document.getElementById("dbusnotify-strings");
+		//this.strings = document.getElementById("strings");
 		// Start listening to downloads
 		DownloadManager.StartListening();
 

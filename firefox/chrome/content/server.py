@@ -15,14 +15,39 @@ FIREFOX_DBUS_INTERFACE = 'org.mozilla.firefox.DBus'
 FIREFOX_DBUS_PATH = '/org/mozilla/firefox/DBus'
 
 class FireFoxDBus(dbus.service.Object):
-	# Will print a message when a download completes
+	# Events
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ss')
 	def DownloadComplete(self, title, subject):
 		print "download complete: " + title + " - " + subject
 
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
+	def BookmarkAdded(self, folder, name, url):
+		print "bookmark added: " + folder + " - " + name + " - " + url
+
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
+	def BookmarkRemoved(self, folder, name, url):
+		print "bookmark removed: " + folder + " - " + name + " - " + url
+
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ssss')
+	def BookmarkChanged(self, folder, name, url, property_name):
+		print "bookmark changed: " + folder + " - " + name + " - " + url + " - " + property_name
+
+	# Event emitters
 	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
 	def emitDownloadComplete(self, title, subject):
 		self.DownloadComplete(title, subject)
+
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
+	def emitBookmarkAdded(self, folder, name, url):
+		self.BookmarkAdded(folder, name, url)
+
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
+	def emitBookmarkRemoved(self, folder, name, url):
+		self.BookmarkRemoved(folder, name, url)
+
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
+	def emitBookmarkChanged(self, folder, name, url):
+		self.BookmarkChanged(folder, name, url)
 
 DBusGMainLoop(set_as_default = True)
 gobject.threads_init()

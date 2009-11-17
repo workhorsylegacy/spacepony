@@ -16,7 +16,16 @@ def quit_program(signl, frme):
 signal.signal(signal.SIGINT, quit_program)
 
 def on_download_complete(title, subject):
-	print title + ' ' + subject
+	print "Download complete: " + title + ' ' + subject
+
+def on_bookmark_added(folder, name, url):
+	print "Bookmark added: " + folder + ' ' + name + ' ' + url
+
+def on_bookmark_removed(folder, name, url):
+	print "Bookmark removed: " + folder + ' ' + name + ' ' + url
+
+def on_bookmark_changed(folder, name, url):
+	print "Bookmark changed: " + folder + ' ' + name + ' ' + url
 
 # Initiate a connection to the Session Bus
 bus = dbus.SessionBus()
@@ -25,6 +34,18 @@ bus = dbus.SessionBus()
 bus.add_signal_receiver(on_download_complete,
 						dbus_interface = "org.mozilla.firefox.DBus",
 						signal_name = "DownloadComplete")
+
+bus.add_signal_receiver(on_bookmark_added,
+						dbus_interface = "org.mozilla.firefox.DBus",
+						signal_name = "BookmarkAdded")
+
+bus.add_signal_receiver(on_bookmark_removed,
+						dbus_interface = "org.mozilla.firefox.DBus",
+						signal_name = "BookmarkRemoved")
+
+bus.add_signal_receiver(on_bookmark_changed,
+						dbus_interface = "org.mozilla.firefox.DBus",
+						signal_name = "BookmarkChanged")
 
 # Loop until manually terminated
 try:

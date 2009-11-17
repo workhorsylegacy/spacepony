@@ -21,8 +21,8 @@ def on_download_complete(title, subject):
 def on_bookmark_added(folder, guid, title, uri):
 	print "Bookmark added - folder:" + folder + ' title:' + title + ' uri:' + uri
 
-def on_bookmark_removed(folder, guid, title, uri):
-	print "Bookmark removed - folder:" + folder + ' title:' + title + ' uri:' + uri
+def on_bookmark_removed(guid):
+	print "Bookmark removed - guid:" + guid
 
 def on_bookmark_changed(guid, property_name, property_value):
 	print "Bookmark changed - guid:" + guid + ' property_name:' + property_name + ' property_value:' + property_value

@@ -7,6 +7,36 @@ When developing, link to the extensions dir
 ln -s ~/Desktop/sample/ ~/.mozilla/firefox/uryzgmqw.dev/extensions/spacepony@workhorsy.org
 */
 
+var Helper = {
+	RunProcess: function(is_blocking, process_path, args) {
+		try {
+			// Get the path of the script
+			const DIR_SERVICE = new Components.Constructor("@mozilla.org/file/directory_service;1", "nsIProperties");
+			var path = (new DIR_SERVICE()).get("ProfD", Components.interfaces.nsIFile).path;
+			path += process_path;
+
+			// https://developer.mozilla.org/En/Code_snippets/Running_applications
+			// create an nsILocalFile for the executable
+			var file = Components.classes["@mozilla.org/file/local;1"]
+			            .createInstance(Components.interfaces.nsILocalFile);
+			file.initWithPath(path);
+
+			// If it failed, show an error
+			if(!file.exists()) {
+				throw("File to run not found: " + process_path);
+			}
+
+			// Create and run the process
+			var process = Components.classes["@mozilla.org/process/util;1"]
+			                .createInstance(Components.interfaces.nsIProcess);
+			process.init(file);
+			process.run(is_blocking, args, args.length);
+		} catch(exception) {
+			throw("Running process failed: " + String(exception));
+		}
+	}
+}
+
 // Bookmark Syncer
 // https://developer.mozilla.org/en/Code_snippets/Bookmarks
 var BookmarkManager = {
@@ -31,16 +61,13 @@ var BookmarkManager = {
 	onItemRemoved: function(aItemId, aFolder, aIndex) {
 		var bmsvc = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
 		                    .getService(Components.interfaces.nsINavBookmarksService);
-		var title = bmsvc.getItemTitle(aItemId);
 		var guid = bmsvc.getItemGUID(aItemId);
-		var uri = bmsvc.getBookmarkURI(aItemId).spec;
-		var folder = "blah/blah/"; // FIXME: Find the real folder
 
 		// Send a dbus event to the server
 		Helper.RunProcess(
 		true, 
 		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_removed.py", 
-		[folder, guid, title, uri]);
+		[guid]);
 	},
 
 	onItemChanged: function(aBookmarkId, aProperty, aIsAnnotationProperty, aValue) {
@@ -86,44 +113,8 @@ var BookmarkManager = {
 	}, 
 };
 
-var Helper = {
-	RunProcess: function(is_blocking, process_path, args) {
-		try {
-			// Get the path of the script
-			const DIR_SERVICE = new Components.Constructor("@mozilla.org/file/directory_service;1", "nsIProperties");
-			var path = (new DIR_SERVICE()).get("ProfD", Components.interfaces.nsIFile).path;
-			path += process_path;
-
-			// https://developer.mozilla.org/En/Code_snippets/Running_applications
-			// create an nsILocalFile for the executable
-			var file = Components.classes["@mozilla.org/file/local;1"]
-			            .createInstance(Components.interfaces.nsILocalFile);
-			file.initWithPath(path);
-
-			// If it failed, show an error
-			if(!file.exists()) {
-				throw("File to run not found: " + process_path);
-			}
-
-			// Create and run the process
-			var process = Components.classes["@mozilla.org/process/util;1"]
-			                .createInstance(Components.interfaces.nsIProcess);
-			process.init(file);
-			process.run(is_blocking, args, args.length);
-		} catch(exception) {
-			throw("Running process failed: " + String(exception));
-		}
-	}
-}
-
 var DownloadManager = {
 	StartListening: function() {
-		// Start the dbus server in a background process
-		Helper.RunProcess(
-		false, 
-		"/extensions/spacepony@workhorsy.org/chrome/content/server.py", 
-		[]);
-
 		// Tell the download manager to send events to the DownloadManager
 		this.dlMgr = Components.classes["@mozilla.org/download-manager;1"]
 						.getService(Components.interfaces.nsIDownloadManager);
@@ -154,8 +145,14 @@ var DownloadManager = {
 
 var Program = {
 	onLoad: function() {
-		this.initialized = true;
 		//this.strings = document.getElementById("strings");
+
+		// Start the dbus server in a background process
+		Helper.RunProcess(
+		false, 
+		"/extensions/spacepony@workhorsy.org/chrome/content/server.py", 
+		[]);
+
 		// Start listening to downloads
 		DownloadManager.StartListening();
 

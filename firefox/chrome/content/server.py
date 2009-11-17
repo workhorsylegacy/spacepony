@@ -24,28 +24,28 @@ class FireFoxDBus(dbus.service.Object):
 	def BookmarkAdded(self, folder, guid, title, uri):
 		print "bookmark added: " + folder + " - " + title + " - " + uri
 
-	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ssss')
-	def BookmarkRemoved(self, folder, title, guid, uri):
-		print "bookmark removed: " + folder + " - " + title + " - " + uri
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='s')
+	def BookmarkRemoved(self, guid):
+		print "bookmark removed: " + guid
 
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
 	def BookmarkChanged(self, guid, property_name, property_value):
 		print "bookmark changed: " + guid + " - " + property_name + " - " + property_value
 
 	# Event emitters
-	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='ss', out_signature='')
 	def emitDownloadComplete(self, title, subject):
 		self.DownloadComplete(title, subject)
 
-	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='ssss', out_signature='')
 	def emitBookmarkAdded(self, folder, guid, title, uri):
 		self.BookmarkAdded(folder, guid, title, uri)
 
-	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
-	def emitBookmarkRemoved(self, folder, guid, title, uri):
-		self.BookmarkRemoved(folder, guid, title, uri)
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='s', out_signature='')
+	def emitBookmarkRemoved(self, guid):
+		self.BookmarkRemoved(guid)
 
-	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
+	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='sss', out_signature='')
 	def emitBookmarkChanged(self, guid, property_name, property_value):
 		self.BookmarkChanged(guid, property_name, property_value)
 

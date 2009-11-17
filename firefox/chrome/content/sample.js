@@ -14,27 +14,47 @@ var BookmarkManager = {
 	onEndUpdateBatch: function() {},
 
 	onItemAdded: function(aItemId, aFolder, aIndex) {
+		var bmsvc = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
+		                    .getService(Components.interfaces.nsINavBookmarksService);
+		var title = bmsvc.getItemTitle(aItemId);
+		var guid = bmsvc.getItemGUID(aItemId);
+		var uri = bmsvc.getBookmarkURI(aItemId).spec;
+		var folder = "blah/blah/"; // FIXME: Find the real folder
+
 		// Send a dbus event to the server
 		Helper.RunProcess(
 		true, 
 		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_added.py", 
-		[String(aItemId), String(aFolder), String(aIndex)]);
+		[folder, guid, title, uri]);
 	},
 
 	onItemRemoved: function(aItemId, aFolder, aIndex) {
+		var bmsvc = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
+		                    .getService(Components.interfaces.nsINavBookmarksService);
+		var title = bmsvc.getItemTitle(aItemId);
+		var guid = bmsvc.getItemGUID(aItemId);
+		var uri = bmsvc.getBookmarkURI(aItemId).spec;
+		var folder = "blah/blah/"; // FIXME: Find the real folder
+
 		// Send a dbus event to the server
 		Helper.RunProcess(
 		true, 
 		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_removed.py", 
-		[String(aItemId), String(aFolder), String(aIndex)]);
+		[folder, guid, title, uri]);
 	},
 
 	onItemChanged: function(aBookmarkId, aProperty, aIsAnnotationProperty, aValue) {
+		var bmsvc = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
+		                    .getService(Components.interfaces.nsINavBookmarksService);
+		var guid = bmsvc.getItemGUID(aBookmarkId);
+		var property_name = aProperty;
+		var property_value = aValue;
+
 		// Send a dbus event to the server
 		Helper.RunProcess(
 		true, 
 		"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_changed.py", 
-		[String(aBookmarkId), String(aProperty), String(aIsAnnotationProperty), String(aValue)]);
+		[guid, property_name, property_value]);
 	},
 
 	onItemVisited: function(aBookmarkId, aVisitID, time) {},

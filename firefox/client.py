@@ -16,16 +16,16 @@ def quit_program(signl, frme):
 signal.signal(signal.SIGINT, quit_program)
 
 def on_download_complete(title, subject):
-	print "Download complete: " + title + ' ' + subject
+	print "Download complete - title:" + title + ' subject:' + subject
 
-def on_bookmark_added(folder, name, url):
-	print "Bookmark added: " + folder + ' ' + name + ' ' + url
+def on_bookmark_added(folder, guid, title, uri):
+	print "Bookmark added - folder:" + folder + ' title:' + title + ' uri:' + uri
 
-def on_bookmark_removed(folder, name, url):
-	print "Bookmark removed: " + folder + ' ' + name + ' ' + url
+def on_bookmark_removed(folder, guid, title, uri):
+	print "Bookmark removed - folder:" + folder + ' title:' + title + ' uri:' + uri
 
-def on_bookmark_changed(folder, name, url):
-	print "Bookmark changed: " + folder + ' ' + name + ' ' + url
+def on_bookmark_changed(guid, property_name, property_value):
+	print "Bookmark changed - guid:" + guid + ' property_name:' + property_name + ' property_value:' + property_value
 
 # Initiate a connection to the Session Bus
 bus = dbus.SessionBus()

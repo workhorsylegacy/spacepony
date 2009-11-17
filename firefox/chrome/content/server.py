@@ -20,17 +20,17 @@ class FireFoxDBus(dbus.service.Object):
 	def DownloadComplete(self, title, subject):
 		print "download complete: " + title + " - " + subject
 
-	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
-	def BookmarkAdded(self, folder, name, url):
-		print "bookmark added: " + folder + " - " + name + " - " + url
-
-	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
-	def BookmarkRemoved(self, folder, name, url):
-		print "bookmark removed: " + folder + " - " + name + " - " + url
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ssss')
+	def BookmarkAdded(self, folder, guid, title, uri):
+		print "bookmark added: " + folder + " - " + title + " - " + uri
 
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ssss')
-	def BookmarkChanged(self, folder, name, url, property_name):
-		print "bookmark changed: " + folder + " - " + name + " - " + url + " - " + property_name
+	def BookmarkRemoved(self, folder, title, guid, uri):
+		print "bookmark removed: " + folder + " - " + title + " - " + uri
+
+	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
+	def BookmarkChanged(self, guid, property_name, property_value):
+		print "bookmark changed: " + guid + " - " + property_name + " - " + property_value
 
 	# Event emitters
 	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
@@ -38,16 +38,16 @@ class FireFoxDBus(dbus.service.Object):
 		self.DownloadComplete(title, subject)
 
 	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
-	def emitBookmarkAdded(self, folder, name, url):
-		self.BookmarkAdded(folder, name, url)
+	def emitBookmarkAdded(self, folder, guid, title, uri):
+		self.BookmarkAdded(folder, guid, title, uri)
 
 	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
-	def emitBookmarkRemoved(self, folder, name, url):
-		self.BookmarkRemoved(folder, name, url)
+	def emitBookmarkRemoved(self, folder, guid, title, uri):
+		self.BookmarkRemoved(folder, guid, title, uri)
 
 	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE)
-	def emitBookmarkChanged(self, folder, name, url):
-		self.BookmarkChanged(folder, name, url)
+	def emitBookmarkChanged(self, guid, property_name, property_value):
+		self.BookmarkChanged(guid, property_name, property_value)
 
 DBusGMainLoop(set_as_default = True)
 gobject.threads_init()

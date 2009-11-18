@@ -149,12 +149,6 @@ var Program = {
 	onLoad: function() {
 		//this.strings = document.getElementById("strings");
 
-		// Start the dbus server in a background process
-		Helper.RunProcess(
-		false, 
-		"/extensions/spacepony@workhorsy.org/chrome/content/server.py", 
-		[]);
-
 		// Start listening to downloads
 		DownloadManager.StartListening();
 

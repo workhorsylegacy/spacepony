@@ -149,6 +149,40 @@ var Program = {
 	onLoad: function() {
 		//this.strings = document.getElementById("strings");
 
+		// https://developer.mozilla.org/en/Retrieving_part_of_the_bookmarks_tree
+		var historyService = Components.classes["@mozilla.org/browser/nav-history-service;1"]
+		                               .getService(Components.interfaces.nsINavHistoryService);
+		var options = historyService.getNewQueryOptions();
+		var query = historyService.getNewQuery();
+
+		var bookmarksService = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
+		                                 .getService(Components.interfaces.nsINavBookmarksService);
+		var toolbarFolder = bookmarksService.toolbarFolder;
+		query.setFolders([toolbarFolder], 1);
+		var result = historyService.executeQuery(query, options);
+
+		// Look at all the bookmarks
+		var unprocessed_nodes = [result.root];
+
+		while(unprocessed_nodes.length > 0) {
+			var node = unprocessed_nodes.pop();
+
+			// Normal bookmark
+			if(node.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_URI) {
+				alert("uri: " + node.title + " - " + String(node.childCount));
+			// Folder
+			} else if(node.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER) {
+				node.QueryInterface(Ci.nsINavHistoryContainerResultNode);
+				node.containerOpen = true;
+				alert("folder: " + node.title);
+				//alert("folders: " + node.getParent().title);
+				for(var i=0; i<node.childCount; i++) {
+					unprocessed_nodes.push(node.getChild(i));
+				}
+				node.containerOpen = false;
+			}
+		}
+
 		// Start listening to downloads
 		DownloadManager.StartListening();
 

@@ -4,7 +4,7 @@ class FirefoxBookmarksController < ApplicationController
   layout 'default'
   protect_from_forgery :only => []
   before_filter :authenticate
-  before_filter :authorize_originating_user_only, :only => ['index', 'show', 'create', 'update', 'destroy']
+  before_filter :authorize_originating_user_only, :only => ['index', 'show', 'create', 'update', 'destroy', 'all_bookmark_meta_data', 'get_newer']
 
   # GET /firefox_bookmarks
   # GET /firefox_bookmarks.xml
@@ -110,6 +110,35 @@ class FirefoxBookmarksController < ApplicationController
       format.html { redirect_to(:action => :index, :user_id => @firefox_bookmark.user_id) }
       format.json  { head :ok }
       format.xml  { head :ok }
+    end
+  end
+
+  def get_newer
+    newest_timestamp = params['newest_timestamp'].to_f
+
+    @firefox_bookmarks = FirefoxBookmark.find(:all, :conditions => ['user_id=? and updated_timestamp>?', 
+                                                          params[:user_id], 
+                                                          newest_timestamp])
+
+    respond_to do |format|
+      format.html # get_newer.html.erb
+      format.json  { render :text => @firefox_bookmarks.to_json }
+      format.xml  { render :text => @firefox_bookmarks.to_xml }
+    end
+  end
+
+  def get_meta
+    @firefox_bookmarks = FirefoxBookmark.find(:all, :conditions => ['user_id=?', 
+                                                          params[:user_id]])
+
+    @firefox_bookmarks.each do |n|
+        n.apply_meta_filter()
+    end
+
+    respond_to do |format|
+      format.html # get_meta.html.erb
+      format.json  { render :text => @firefox_bookmarks.to_json }
+      format.xml  { render :text => @firefox_bookmarks.to_xml }
     end
   end
 

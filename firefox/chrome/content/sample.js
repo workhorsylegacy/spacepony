@@ -44,6 +44,7 @@ var BookmarkManager = {
 	onEndUpdateBatch: function() {},
 
 	onItemAdded: function(aItemId, aFolder, aIndex) {
+		// https://developer.mozilla.org/en/nsINavBookmarksService
 		var bmsvc = Components.classes["@mozilla.org/browser/nav-bookmarks-service;1"]
 		                    .getService(Components.interfaces.nsINavBookmarksService);
 		var title = bmsvc.getItemTitle(aItemId);
@@ -165,17 +166,33 @@ var Program = {
 		var unprocessed_nodes = [result.root];
 
 		while(unprocessed_nodes.length > 0) {
+			// https://developer.mozilla.org/en/nsINavHistoryResultNode
 			var node = unprocessed_nodes.pop();
 
 			// Normal bookmark
 			if(node.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_URI) {
-				alert("uri: " + node.title + " - " + String(node.childCount));
+				var title = node.title;
+				var guid = ""; //node.guid; // FIXME: Find the real guid
+				var uri = node.uri;
+				var folder = "";
+
+				// Get the complete folder path
+				var parent = node.parent;
+				while(parent != null) {
+					folder = parent.title + "/" + folder;
+					parent = parent.parent;
+				}
+				folder = "/" + folder;
+
+				// Send a dbus event to the server
+				Helper.RunProcess(
+				true, 
+				"/extensions/spacepony@workhorsy.org/chrome/content/fire_bookmark_added.py", 
+				[folder, guid, title, uri]);
 			// Folder
 			} else if(node.type == Ci.nsINavHistoryResultNode.RESULT_TYPE_FOLDER) {
 				node.QueryInterface(Ci.nsINavHistoryContainerResultNode);
 				node.containerOpen = true;
-				alert("folder: " + node.title);
-				//alert("folders: " + node.getParent().title);
 				for(var i=0; i<node.childCount; i++) {
 					unprocessed_nodes.push(node.getChild(i));
 				}

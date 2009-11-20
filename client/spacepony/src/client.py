@@ -81,6 +81,9 @@ class PidginAccount(ActiveResource):
 class TomboyNote(ActiveResource):
 	_site = SERVER_ADDRESS
 
+class FirefoxBookmark(ActiveResource):
+	_site = SERVER_ADDRESS
+
 class Bin(ActiveResource):
 	_site = SERVER_ADDRESS
 
@@ -92,19 +95,23 @@ class FireFoxDBusServer(dbus.service.Object):
 	# Events
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ss')
 	def DownloadComplete(self, title, subject):
-		print "download complete: " + title + " - " + subject
+		pass
+		#print "download complete: " + title + " - " + subject
 
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='ssss')
 	def BookmarkAdded(self, folder, guid, title, uri):
-		print "bookmark added: " + folder + " - " + title + " - " + uri
+		pass
+		#print "bookmark added: " + folder + " - " + title + " - " + uri
 
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='s')
 	def BookmarkRemoved(self, guid):
-		print "bookmark removed: " + guid
+		pass
+		#print "bookmark removed: " + guid
 
 	@dbus.service.signal(dbus_interface=FIREFOX_DBUS_INTERFACE, signature='sss')
 	def BookmarkChanged(self, guid, property_name, property_value):
-		print "bookmark changed: " + guid + " - " + property_name + " - " + property_value
+		pass
+		#print "bookmark changed: " + guid + " - " + property_name + " - " + property_value
 
 	# Event emitters
 	@dbus.service.method(dbus_interface=FIREFOX_DBUS_INTERFACE, in_signature='ss', out_signature='')
@@ -1213,8 +1220,324 @@ class TomboySync(BaseSync):
 				print "Normal Sync: Note added(new from server): " + server_note.name
 				self.notify("Added tomboy note", server_note.name)
 
+class FirefoxSync(BaseSync):
+	def __init__(self, bus, user):
+		super(FirefoxSync, self).__init__('firefox')
+		self._newest_timestamp = None
+		self._ignore_event = {}
+		self._bookmarks = {}
+		self._user = user
+		self._firefox = None
+		self._obj = None
+		self._bus = bus
+
+	def is_firefox_running(self):
+		return True
+
+	'''
+		Returns true if the self._firefox dbus object was 
+		set to an abject, or null if not.
+	'''
+	def _ensure_valid_dbus_connection(self):
+		# Check if the dbus object is null or invalid
+		needs_dbus = False
+		if self._firefox == None:
+			needs_dbus = True
+		else:
+			try:
+				self._firefox.Value()
+			except dbus.exceptions.DBusException:
+				needs_dbus = True
+
+		# Get a new dbus object
+		if needs_dbus:
+			self._firefox = None
+			try:
+				self._obj = self._bus.get_object("org.mozilla.firefox.DBus", "/FireFoxDBus")
+				self._firefox = dbus.Interface(self._obj, "org.mozilla.firefox.DBus")
+				self._firefox.Value() # This is called to populate the obj._introspect_method_map
+			except dbus.exceptions.DBusException:
+				pass
+
+		# Return true if was successfull
+		return self._firefox is None
+
+	def notify(self, title, uri):
+		n = pynotify.Notification(title, uri, 
+		"file:///usr/share/app-install/icons/firefox-installer.png")
+		n.show()
+
+	def notify_summary(self, count_new_bookmark, count_updated_bookmarks):
+		# If there were no changes
+		if count_new_bookmarks + count_updated_bookmarks == 0:
+			self.notify("Bookmarks synced with server", "No new bookmarks or updates.")
+			return
+
+		# If there were changes show the number
+		message = ""
+		if count_new_bookmarks > 0:
+			message += " New bookmarks: " + str(count_new_bookmarks)
+		if count_updated_bookmarks > 0:
+			message += " Updated bookmarks: " + str(count_updated_bookmarks)
+		self.notify("Bookmarks synced with server", message)
+
+	def add_bookmark(self, bookmark, save_now = True):
+		self._ensure_valid_dbus_connection()
+		bookmark_guid = bookmark
+
+		# skip this event if it is in the list of ignores
+		if self._ignore_event.has_key(bookmark_guid) and self._ignore_event[bookmark_guid] > 0:
+			self._ignore_event[bookmark_guid] -= 1
+			return
+
+		# Skip adding the bookmark if it already exists
+		if self._bookmarks.has_key(bookmark_guid):
+			return
+
+		# Get the bookmark info from dbus, and return if we can't
+		new_bookmark_title, new_bookmark_uri, new_bookmark_folder = None, None, None
+		try:
+			new_bookmark_title = str(self._firefox.GetBookmarkTitle(bookmark))
+			new_bookmark_uri = str(self._firefox.GetBookmarkUri(bookmark))
+			new_bookmark_folder = self._firefox.GetBookmarkFolder(bookmark)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when adding bookmark."
+			return
+
+		# Save the bookmark
+		firefox_bookmark = FirefoxBookmark()
+		firefox_bookmark.guid = bookmark_guid
+		firefox_bookmark.user_id = self._user.id
+		firefox_bookmark.title = new_bookmark_title
+		firefox_bookmark.uri = new_bookmark_uri
+		firefox_bookmark.folder = new_bookmark_folder
+		firefox_bookmark.created_timestamp = None
+		if save_now:
+			firefox_bookmark.save()
+			firefox_bookmark = FirefoxBookmark.find(firefox_bookmark.id, user_id=firefox_bookmark.user_id)
+			self._bookmarks[firefox_bookmark.guid] = firefox_bookmark
+			self.set_newest_timestamp(firefox_bookmark.updated_timestamp)
+		self._bookmarks[bookmark_guid] = firefox_bookmark
+
+		if save_now:
+			print "Server: Bookmark added: " + firefox_bookmark.title
+
+	def update_bookmark(self, bookmark):
+		self._ensure_valid_dbus_connection()
+		bookmark_guid = bookmark
+
+		# skip this event if it is in the list of ignores
+		if self._ignore_event.has_key(bookmark_guid) and self._ignore_event[bookmark_guid] > 0:
+			self._ignore_event[bookmark_guid] -= 1
+			return
+
+		# Skip the bookmark if it does not exist
+		if not self._bookmarks.has_key(bookmark_guid):
+			print "no bookmark with guid: " + bookmark_guid
+			return
+
+		# Get the bookmark info from dbus, and return if we can't
+		try:
+			new_bookmark_title = str(self._firefox.GetBookmarkTitle(bookmark))
+			new_bookmark_uri = str(self._firefox.GetBookmarkUri(bookmark))
+			new_bookmark_folder = self._firefox.GetBookmarkFolder(bookmark)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when updating bookmark."
+			return
+
+		# Save the changes to the bookmark
+		firefox_bookmark = self._bookmarks[bookmark_guid]
+		firefox_bookmark.title = new_bookmark_title
+		firefox_bookmark.uri = new_bookmark_uri
+		firefox_bookmark.folder = new_bookmark_folder
+
+		try:
+			firefox_bookmark.save()
+			firefox_bookmark = FirefoxBookmark.find(firefox_bookmark.id, user_id=firefox_bookmark.user_id)
+			self._bookmarks[firefox_bookmark.guid] = firefox_bookmark
+			self.set_newest_timestamp(firefox_bookmark.updated_timestamp)
+		except Exception, err:
+			if str(err) == "HTTP Error 404: Not Found":
+				try:
+					self._firefox.RemoveBookmark(bookmark)
+				except dbus.exceptions.DBusException:
+					self._bookmarks.pop(bookmark_guid)
+					return
+
+		print "Server: Bookmark updated: " + firefox_bookmark.title
+
+
+	def remove_bookmark(self, bookmark):
+		self._ensure_valid_dbus_connection()
+		bookmark_guid = bookmark
+
+		# skip this event if it is in the list of ignores
+		if self._ignore_event.has_key(bookmark_guid) and self._ignore_event[bookmark_guid] > 0:
+			self._ignore_event[bookmark_guid] -= 1
+			return
+
+		# Just return if it does not exist
+		if not self._bookmarks.has_key(bookmark_guid):
+			return
+
+		# Remove the bookmark
+		firefox_bookmark = self._bookmarks[bookmark_guid]
+		try:
+			firefox_bookmark.destroy()
+		except:
+			pass
+		self._bookmarks.pop(bookmark_guid)
+
+		print "Server: Bookmark deleted: " + firefox_bookmark.title
+
+	def first_sync(self):
+		self._ensure_valid_dbus_connection()
+		count_new_bookmarks = 0
+		count_updated_bookmarks = 0
+
+		# Add all the local firefox bookmarks
+		self._bookmarks = {}
+		try:
+			for bookmark in self._firefox.ListAllBookmarks():
+				self.add_bookmark(bookmark, False)
+		except dbus.exceptions.DBusException:
+			print "Error: Lost dbus connection when on firefox first sync."
+			return
+
+		# Find the bookmarks on the server that are newer or updated
+		newest_timestamp = self.get_newest_timestamp() or 0
+		server_bookmarks = {}
+		for server_bookmark in FirefoxBookmark.get('get_meta', user_id=self._user.id):
+			server_bookmark = FirefoxBookmark(server_bookmark)
+			server_bookmarks[server_bookmark.guid] = server_bookmark
+
+		# Update the bookmarks on the server and client
+		for server_bookmark in server_bookmarks.values():
+			# Is on server and client ...
+			if self._bookmarks.has_key(server_bookmark.guid):
+				firefox_bookmark = self._bookmarks[server_bookmark.guid]
+				# but client's is newer
+				if firefox_bookmark.id and firefox_bookmark.updated_timestamp > server_bookmark.updated_timestamp:
+					firefox_bookmark.save()
+					print "First Sync: Bookmark updated(client newer): " + firefox_bookmark.title
+					count_updated_bookmarks += 1
+				# but server's is newer
+				elif firefox_bookmark.id and firefox_bookmark.updated_timestamp < server_bookmark.updated_timestamp:
+					server_bookmark = FirefoxBookmark.find(server_bookmark.id, user_id=server_bookmark.user_id)
+					account_changed = False
+
+					if not self._ignore_event.has_key(firefox_bookmark.guid): self._ignore_event[firefox_bookmark.guid] = 0
+					self._ignore_event[firefox_bookmark.guid] += 1
+
+					if firefox_bookmark.title != server_bookmark.title or firefox_bookmark.uri != server_bookmark.uri or firefox_bookmark.folder != server_bookmark.folder:
+						account_changed = True
+						try:
+							self._firefox.UpdateBookmark(firefox_bookmark.title, firefox_bookmark.uri, firefox_bookmark.folder)
+						except dbus.exceptions.DBusException:
+							print "Error: Lost dbus connection when on firefox first sync."
+							return
+
+					self._bookmarks[firefox_bookmark.guid] = server_bookmark
+
+					if account_changed:
+						print "First Sync: Bookmark updated(server newer): " + firefox_bookmark.title
+						count_updated_bookmarks += 1
+
+		# Save the bookmarks that are just on the server
+		for server_bookmark in server_bookmarks.values():
+			if not self._bookmarks.has_key(server_bookmark.guid):
+				if not self._ignore_event.has_key(server_bookmark.guid): self._ignore_event[server_bookmark.guid] = 0
+				self._ignore_event[server_bookmark.guid] += 1
+
+				server_bookmark = FirefoxBookmark.find(server_bookmark.id, user_id=server_bookmark.user_id)
+				self._bookmarks[server_bookmark.guid] = server_bookmark
+				try:
+					bookmark = self._firefox.CreateBookmarkWithGuid(server_bookmark.title, server_bookmark.uri, server_bookmark.folder, server_bookmark.guid)
+				except dbus.exceptions.DBusException:
+					print "Error: Lost dbus connection when on firefox first sync."
+					return
+				print "First Sync: Bookmark added(new from server): " + server_bookmark.name
+				count_new_bookmarks += 1
+
+		# Save the bookmarks that are just on the client
+		for firefox_bookmark in self._bookmarks.values():
+			if not server_bookmarks.has_key(firefox_bookmark.guid):
+				firefox_bookmark.save()
+				print "First Sync: Bookmark added(new from client): " + firefox_bookmark.title
+				count_new_bookmarks += 1
+
+		# Get the updated_timestamp of the newest bookmark
+		for firefox_bookmark in self._bookmarks.values():
+			if firefox_bookmark.id:
+				self.set_newest_timestamp(firefox_bookmark.updated_timestamp)
+
+		self.notify_summary(count_new_bookmarks, count_updated_bookmarks)
+
+	def normal_sync(self):
+		self._ensure_valid_dbus_connection()
+
+		# Find the bookmarks on the server that are newer or updated
+		newest_timestamp = self.get_newest_timestamp() or 0
+		server_bookmarks = {}
+		for server_bookmark in FirefoxBookmark.get('get_newer', newest_timestamp=newest_timestamp, user_id=self._user.id):
+			server_bookmark = FirefoxBookmark(server_bookmark)
+			server_bookmarks[server_bookmark.guid] = server_bookmark
+
+		# Update the bookmarks on the server and client
+		for server_bookmark in server_bookmarks.values():
+			# Is on server and client ...
+			if self._bookmarks.has_key(server_bookmark.guid):
+				firefox_bookmark = self._bookmarks[server_bookmark.guid]
+				# but client's is newer
+				if firefox_bookmark.id and firefox_bookmark.updated_timestamp > server_bookmark.updated_timestamp:
+					firefox_bookmark.save()
+					firefox_bookmark = FirefoxBookmark.find(firefox_bookmark.id, user_id=firefox_bookmark.user_id)
+					self._bookmarks[firefox_bookmark.guid] = firefox_bookmark
+					print "Normal Sync: Bookmark updated(client newer): " + firefox_bookmark.name
+				# but server's is newer
+				elif firefox_bookmark.id and firefox_bookmark.updated_timestamp < server_bookmark.updated_timestamp:
+					account_changed = False
+
+					if firefox_bookmark.title != server_bookmark.title or firefox_bookmark.uri != server_bookmark.uri or firefox_bookmark.folder != server_bookmark.folder:
+						if not self._ignore_event.has_key(firefox_bookmark.guid): self._ignore_event[firefox_bookmark.guid] = 0
+						self._ignore_event[firefox_bookmark.guid] += 1
+
+						account_changed = True
+						firefox_bookmark = server_bookmark
+						try:
+							self._firefox.CreateBookmarkWithGuid(server_bookmark.title, server_bookmark.uri, server_bookmark.folder, server_bookmark.guid)
+						except dbus.exceptions.DBusException:
+							print "Error: Lost dbus connection when on firefox normal sync."
+							return
+
+					self._bookmarks[firefox_bookmark.guid] = server_bookmark
+
+					if account_changed:
+						print "Normal Sync: Bookmark updated(server newer): " + firefox_bookmark.name
+						self.notify("Updated firefox bookmark", firefox_bookmark.name)
+
+				self.set_newest_timestamp(server_bookmark.updated_timestamp)
+
+		# Save the bookmarks that are just on the server
+		for server_bookmark in server_bookmarks.values():
+			if not self._bookmarks.has_key(server_bookmark.guid):
+				if not self._ignore_event.has_key(server_bookmark.guid): self._ignore_event[server_bookmark.guid] = 0
+				self._ignore_event[server_bookmark.guid] += 1
+
+				self._bookmarks[server_bookmark.guid] = server_bookmark
+				bookmark = None
+				try:
+					bookmark = self._firefox.CreateBookmarkWithGuid(server_bookmark.title, server_bookmark.uri, server_bookmark.folder, server_bookmark.guid)
+				except dbus.exceptions.DBusException:
+					print "Error: Lost dbus connection when on firefox normal sync."
+					return
+
+				self.set_newest_timestamp(server_bookmark.updated_timestamp)
+				print "Normal Sync: Bookmark added(new from server): " + server_bookmark.name
+				self.notify("Added firefox bookmark", server_bookmark.name)
+
 """
-Syncs notes to and from the server
+Syncs everything to and from the server
 """
 class Syncer(threading.Thread):
 	# FIXME: Change this to use the http auth name and password instead
@@ -1228,11 +1551,13 @@ class Syncer(threading.Thread):
 
 		self._pidgin_syncer = None
 		self._tomboy_syncer = None
+		self._firefox_syncer = None
 		self._watch_file_syncer = None
 		self._gconf_file_syncer = None
 
 		self._needs_pidgin_resync = False
 		self._needs_tomboy_resync = False
+		self._needs_firefox_resync = False
 
 		self._username = username
 		self._password = password
@@ -1247,11 +1572,9 @@ class Syncer(threading.Thread):
 		bus.add_signal_receiver(self.onAccountStatusChanged,
 								dbus_interface = "im.pidgin.purple.PurpleInterface",
 								signal_name = "AccountStatusChanged")
-
 		bus.add_signal_receiver(self.onAccountAdded,
 								dbus_interface = "im.pidgin.purple.PurpleInterface",
 								signal_name = "AccountAdded")
-
 		bus.add_signal_receiver(self.onAccountRemoved,
 								dbus_interface = "im.pidgin.purple.PurpleInterface",
 								signal_name = "AccountRemoved")
@@ -1259,14 +1582,22 @@ class Syncer(threading.Thread):
 		bus.add_signal_receiver(self.onNoteSaved,
 								dbus_interface = "org.gnome.Tomboy.RemoteControl",
 								signal_name = "NoteSaved")
-
 		bus.add_signal_receiver(self.onNoteAdded,
 								dbus_interface = "org.gnome.Tomboy.RemoteControl",
 								signal_name = "NoteAdded")
-
 		bus.add_signal_receiver(self.onNoteDeleted,
 								dbus_interface = "org.gnome.Tomboy.RemoteControl",
 								signal_name = "NoteDeleted")
+
+		bus.add_signal_receiver(self.onBookmarkChanged,
+								dbus_interface = "org.mozilla.firefox.DBus",
+								signal_name = "BookmarkChanged")
+		bus.add_signal_receiver(self.onBookmarkAdded,
+								dbus_interface = "org.mozilla.firefox.DBus",
+								signal_name = "BookmarkAdded")
+		bus.add_signal_receiver(self.onBookmarkRemoved,
+								dbus_interface = "org.mozilla.firefox.DBus",
+								signal_name = "BookmarkRemoved")
 
 		# Exit if our name or password is wrong
 		try:
@@ -1282,31 +1613,38 @@ class Syncer(threading.Thread):
 
 		self._pidgin_syncer = PidginSync(bus, self._user)
 		self._tomboy_syncer = TomboySync(bus, self._user)
+		self._firefox_syncer = FirefoxSync(bus, self._user)
 		self._watch_file_syncer = WatchFileSync(self._user)
 		self._gconf_file_syncer = GConfFileSync(self._user)
 
 		self._needs_setup = False
 
 	def run(self):
-		# FIXME: This loop is messy. Rewrite the syncing of pidgin
-		# and tomboy stuff to have only the normal_sync.
+		# FIXME: This loop is messy. Rewrite the syncing to 
+		# only have the normal_sync.
 		while not self._stopevent.isSet():
 			try:
+				# Setup the sync objects that need a setup
 				if self._needs_setup:
 					self._setup()
 					self._watch_file_syncer.start()
 					self._gconf_file_syncer.start()
 
+				# Run the first sync
 				if self._needs_first_sync:
 					if self._pidgin_syncer.is_pidgin_running():
 						self._pidgin_syncer.first_sync()
 					if self._tomboy_syncer.is_tomboy_running():
 						self._tomboy_syncer.first_sync()
+					if self._firefox_syncer.is_firefox_running():
+						self._firefox_syncer.first_sync()
 					self._watch_file_syncer.sync()
 					self._gconf_file_syncer.sync()
 
 					self._needs_first_sync = False
+				# Or sync normally
 				else:
+					# normal pidgin sync
 					if self._pidgin_syncer.is_pidgin_running():
 						if self._needs_pidgin_resync:
 							self._pidgin_syncer.first_sync()
@@ -1316,6 +1654,7 @@ class Syncer(threading.Thread):
 					else:
 						self._needs_pidgin_resync = True
 
+					# normal tomboy sync
 					if self._tomboy_syncer.is_tomboy_running():
 						if self._needs_tomboy_resync:
 							self._tomboy_syncer.first_sync()
@@ -1325,6 +1664,17 @@ class Syncer(threading.Thread):
 					else:
 						self._needs_tomboy_resync = True
 
+					# normal firefox sync
+					if self._firefox_syncer.is_firefox_running():
+						if self._needs_firefox_resync:
+							self._firefox_syncer.first_sync()
+							self._needs_firefox_resync = False
+						else:
+							self._firefox_syncer.normal_sync()
+					else:
+						self._needs_firefox_resync = True
+
+					# normal file sync
 					self._watch_file_syncer.sync()
 					self._gconf_file_syncer.sync()
 
@@ -1372,7 +1722,20 @@ class Syncer(threading.Thread):
 	# FIXME: Figure out what the second argument is. There is no documentation
 	def onNoteDeleted(self, note, unknown_object):
 		if self._needs_first_sync == True: return
+		if not self._tomboy_syncer.is_tomboy_version_valid(): return
 		self._tomboy_syncer.remove_note(note)
+
+	def onBookmarkAdded(self, bookmark):
+		if self._needs_first_sync == True: return
+		self._firefox_syncer.add_bookmark(bookmark)
+
+	def onBookmarkChanged(self, bookmark):
+		if self._needs_first_sync == True: return
+		self._firefox_syncer.change_bookmark(bookmark)
+
+	def onBookmarkRemoved(self, bookmark):
+		if self._needs_first_sync == True: return
+		self._firefox_syncer.remove_bookmark(bookmark)
 
 def start():
 	# Start the firefox server
